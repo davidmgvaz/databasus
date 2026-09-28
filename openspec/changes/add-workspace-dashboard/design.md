@@ -12,7 +12,8 @@ The frontend has no URL router for pages. The main screen switches between sideb
 - Global admins see installation-wide totals; nobody else does.
 
 **Non-Goals:**
-- Storage usage reported by the providers, history, charts or caching (see the proposal's out-of-scope list).
+- Storage space and its forecast, which the change `add-storage-space-forecast` covers.
+- History charts or caching (see the proposal's out-of-scope list).
 
 ## Decisions
 

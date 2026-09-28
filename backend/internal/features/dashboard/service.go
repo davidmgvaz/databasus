@@ -34,6 +34,7 @@ type DashboardService struct {
 	physicalBackupConfigService *backups_config_physical.BackupConfigService
 	healthcheckConfigService    *healthcheck_config.HealthcheckConfigService
 	healthcheckAttemptService   *healthcheck_attempt.HealthcheckAttemptService
+	storageService              *storages.StorageService
 }
 
 func (s *DashboardService) GetWorkspaceDashboard(
@@ -128,6 +129,57 @@ func (s *DashboardService) GetInstallationDashboard() (*DashboardTotals, error) 
 			physicalTotals.CompletedBackupSizeMb +
 			physicalTotals.WalSizeMb,
 	}, nil
+}
+
+func (s *DashboardService) GetWorkspaceStorages(
+	ctx context.Context,
+	user *users_models.User,
+	workspaceID uuid.UUID,
+) (*WorkspaceStorages, error) {
+	workspaceDashboard, err := s.GetWorkspaceDashboard(ctx, user, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	usageReports, err := s.storageService.GetStorageUsagesByWorkspace(ctx, user, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
+	}
+
+	databasesCountByStorageID := make(map[uuid.UUID]int64)
+	backupsSizeMbByStorageID := make(map[uuid.UUID]float64)
+	for _, dashboardDatabase := range workspaceDashboard.Databases {
+		if dashboardDatabase.Storage == nil {
+			continue
+		}
+
+		databasesCountByStorageID[dashboardDatabase.Storage.ID]++
+		backupsSizeMbByStorageID[dashboardDatabase.Storage.ID] += dashboardDatabase.TotalBackupSizeMb
+	}
+
+	workspaceStorages := &WorkspaceStorages{
+		Storages:       make([]DashboardStorageUsage, 0, len(usageReports)),
+		FreeSpaceBytes: sumFreeSpaceBytes(usageReports),
+	}
+
+	for _, usageReport := range usageReports {
+		storageUsage := toDashboardStorageUsage(usageReport)
+		storageUsage.DatabasesCount = databasesCountByStorageID[usageReport.StorageID]
+		storageUsage.BackupsSizeMb = backupsSizeMbByStorageID[usageReport.StorageID]
+
+		workspaceStorages.Storages = append(workspaceStorages.Storages, storageUsage)
+	}
+
+	return workspaceStorages, nil
+}
+
+func (s *DashboardService) GetInstallationStorages(ctx context.Context) (*InstallationStorages, error) {
+	usageReports, err := s.storageService.GetAllStorageUsages(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
+	}
+
+	return &InstallationStorages{FreeSpaceBytes: sumFreeSpaceBytes(usageReports)}, nil
 }
 
 func (s *DashboardService) getStoragesByDatabaseID(
@@ -253,4 +305,60 @@ func toDashboardStorage(storage *storages.Storage) *DashboardStorage {
 		Name: storage.Name,
 		Type: storage.Type,
 	}
+}
+
+func toDashboardStorageUsage(usageReport storages.StorageUsageReport) DashboardStorageUsage {
+	storageUsage := DashboardStorageUsage{
+		ID:   usageReport.StorageID,
+		Name: usageReport.StorageName,
+		Type: usageReport.StorageType,
+	}
+
+	switch {
+	case usageReport.Usage != nil:
+		storageUsage.SpaceStatus = StorageSpaceStatusAvailable
+		storageUsage.Space = &DashboardStorageSpace{
+			TotalBytes: usageReport.Usage.TotalBytes,
+			UsedBytes:  usageReport.Usage.UsedBytes,
+			FreeBytes:  usageReport.Usage.FreeBytes,
+		}
+	case usageReport.IsUnavailable:
+		storageUsage.SpaceStatus = StorageSpaceStatusUnavailable
+	default:
+		storageUsage.SpaceStatus = StorageSpaceStatusError
+		if usageReport.ProbeError != nil {
+			storageUsage.SpaceErrorMessage = new(usageReport.ProbeError.Error())
+		}
+	}
+
+	return storageUsage
+}
+
+// Every LOCAL storage writes to the same disk, so its free space counts once. Remote storages
+// count once each, because the dashboard cannot tell two of them sharing a volume apart.
+func sumFreeSpaceBytes(usageReports []storages.StorageUsageReport) *int64 {
+	var freeSpaceBytes *int64
+	isLocalDiskCounted := false
+
+	for _, usageReport := range usageReports {
+		if usageReport.Usage == nil {
+			continue
+		}
+
+		if usageReport.StorageType == storages.StorageTypeLocal {
+			if isLocalDiskCounted {
+				continue
+			}
+
+			isLocalDiskCounted = true
+		}
+
+		if freeSpaceBytes == nil {
+			freeSpaceBytes = new(int64(0))
+		}
+
+		*freeSpaceBytes += usageReport.Usage.FreeBytes
+	}
+
+	return freeSpaceBytes
 }

@@ -24,6 +24,7 @@ import (
 	rclone_storage "databasus-backend/internal/features/storages/models/rclone"
 	s3_storage "databasus-backend/internal/features/storages/models/s3"
 	sftp_storage "databasus-backend/internal/features/storages/models/sftp"
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/logger"
 	"databasus-backend/internal/util/testing/containers"
@@ -66,12 +67,14 @@ func Test_Storage_BasicOperations(t *testing.T) {
 	defer os.Remove(testFilePath)
 
 	testCases := []struct {
-		name    string
-		storage StorageFileSaver
+		name            string
+		storage         StorageFileSaver
+		isUsageReported bool
 	}{
 		{
-			name:    "LocalStorage",
-			storage: &local_storage.LocalStorage{StorageID: uuid.New()},
+			name:            "LocalStorage",
+			storage:         &local_storage.LocalStorage{StorageID: uuid.New()},
+			isUsageReported: true,
 		},
 		{
 			name: "S3Storage",
@@ -109,6 +112,7 @@ func Test_Storage_BasicOperations(t *testing.T) {
 				Domain:    "",
 				Path:      "test-files",
 			},
+			isUsageReported: true,
 		},
 		{
 			name: "AzureBlobStorage_AccountKey",
@@ -153,6 +157,7 @@ func Test_Storage_BasicOperations(t *testing.T) {
 				SkipHostKeyVerify: true,
 				Path:              containers.SftpUploadDir,
 			},
+			isUsageReported: true,
 		},
 		{
 			name: "RcloneStorage",
@@ -177,6 +182,28 @@ acl = private`, s3Container.accessKey, s3Container.secretKey, s3Container.endpoi
 			t.Run("Test_TestConnection_ConnectionSucceeds", func(t *testing.T) {
 				err := tc.storage.TestConnection(encryptor)
 				assert.NoError(t, err, "TestConnection should succeed")
+			})
+
+			t.Run("Test_GetUsage_ReportsSpaceOnlyWhenProviderCan", func(t *testing.T) {
+				usageReporter, isUsageReporter := tc.storage.(StorageUsageReporter)
+
+				if !tc.isUsageReported {
+					if isUsageReporter {
+						_, err := usageReporter.GetUsage(t.Context(), encryptor)
+						assert.ErrorIs(t, err, storage_space.ErrUsageUnavailable)
+					}
+
+					return
+				}
+
+				require.True(t, isUsageReporter)
+
+				usage, err := usageReporter.GetUsage(t.Context(), encryptor)
+				require.NoError(t, err)
+				assert.Positive(t, usage.TotalBytes)
+				assert.GreaterOrEqual(t, usage.FreeBytes, int64(0))
+				assert.LessOrEqual(t, usage.FreeBytes, usage.TotalBytes)
+				assert.LessOrEqual(t, usage.UsedBytes, usage.TotalBytes)
 			})
 
 			t.Run("Test_TestValidation_ValidationSucceeds", func(t *testing.T) {

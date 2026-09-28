@@ -19,6 +19,7 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	io_utils "databasus-backend/internal/util/io"
 )
@@ -338,6 +339,46 @@ func (s *GoogleDriveStorage) TestConnection(encryptor encryption.FieldEncryptor)
 
 		return nil
 	})
+}
+
+func (s *GoogleDriveStorage) GetUsage(
+	ctx context.Context,
+	encryptor encryption.FieldEncryptor,
+) (*storage_space.Usage, error) {
+	ctx, cancel := context.WithTimeout(ctx, gdResponseTimeout)
+	defer cancel()
+
+	var usage *storage_space.Usage
+
+	err := s.withRetryOnAuth(ctx, encryptor, func(driveService *drive.Service) error {
+		about, err := driveService.About.Get().Fields("storageQuota").Context(ctx).Do()
+		if err != nil {
+			return err
+		}
+
+		quota := about.StorageQuota
+		if quota == nil || quota.Limit <= 0 {
+			return storage_space.ErrUsageUnavailable
+		}
+
+		usage = &storage_space.Usage{
+			TotalBytes: quota.Limit,
+			UsedBytes:  quota.Usage,
+			FreeBytes:  quota.Limit - quota.Usage,
+		}
+
+		return nil
+	})
+
+	var apiError *googleapi.Error
+	if errors.As(err, &apiError) && apiError.Code == http.StatusForbidden {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return usage, nil
 }
 
 func (s *GoogleDriveStorage) HideSensitiveData() {

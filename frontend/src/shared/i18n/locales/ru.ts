@@ -284,11 +284,27 @@ export const ru: typeof en = {
       backupsSize: 'Размер бекапов',
       backupsSizeHint:
         'Учитываются только успешные бекапы. У физических баз в размер входят и WAL-сегменты.',
-      installation: 'Все рабочие пространства',
-      installationHint:
-        'Итоги по всем рабочим пространствам этого экземпляра Databasus. Их видят только администраторы.',
-      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      spaceLeft: 'Свободно',
+      spaceLeftHint:
+        'Свободное место в хранилищах, которые умеют его сообщать. Локальные хранилища лежат на одном диске и учитываются один раз. S3, Azure Blob и FTP свободное место не сообщают.',
+      workspaceOfInstallation: '{{workspaceValue}} / {{installationValue}}',
       workspaceOfInstallationHint: 'Это рабочее пространство / все',
+    },
+    storages: {
+      title: 'Хранилища',
+      empty: 'В этом рабочем пространстве пока нет хранилищ',
+      columns: {
+        storage: 'Хранилище',
+        type: 'Тип',
+        databases: 'Базы данных',
+        backupsSize: 'Размер бекапов',
+        used: 'Занято',
+        free: 'Свободно',
+        total: 'Всего',
+        usage: 'Заполнено',
+      },
+      spaceUnavailable: 'Этот тип хранилища не сообщает место',
+      spaceError: 'Не удалось узнать место',
     },
     list: {
       title: 'Базы данных',

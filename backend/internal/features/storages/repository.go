@@ -157,7 +157,17 @@ func (r *StorageRepository) FindByID(ctx context.Context, id uuid.UUID) (*Storag
 func (r *StorageRepository) GetAllStorages() ([]*Storage, error) {
 	var storages []*Storage
 
-	if err := db.GetDb().Find(&storages).Error; err != nil {
+	if err := db.
+		GetDb().
+		Preload("LocalStorage").
+		Preload("S3Storage").
+		Preload("GoogleDriveStorage").
+		Preload("NASStorage").
+		Preload("AzureBlobStorage").
+		Preload("FTPStorage").
+		Preload("SFTPStorage").
+		Preload("RcloneStorage").
+		Find(&storages).Error; err != nil {
 		return nil, err
 	}
 

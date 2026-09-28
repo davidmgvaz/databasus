@@ -12,8 +12,10 @@ import (
 	"syscall"
 
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/v4/disk"
 
 	"databasus-backend/internal/config"
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	files_utils "databasus-backend/internal/util/files"
 )
@@ -206,6 +208,24 @@ func (l *LocalStorage) TestConnection(encryptor encryption.FieldEncryptor) error
 	return nil
 }
 
+func (l *LocalStorage) GetUsage(
+	_ context.Context,
+	_ encryption.FieldEncryptor,
+) (*storage_space.Usage, error) {
+	measuredFolder := getNearestExistingFolder(config.GetEnv().DataFolder)
+
+	diskUsage, err := disk.Usage(measuredFolder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read disk usage of %s: %w", measuredFolder, err)
+	}
+
+	return &storage_space.Usage{
+		TotalBytes: int64(diskUsage.Total),
+		UsedBytes:  int64(diskUsage.Used),
+		FreeBytes:  int64(diskUsage.Free),
+	}, nil
+}
+
 func (l *LocalStorage) HideSensitiveData() {
 }
 
@@ -291,5 +311,21 @@ func copyWithContext(ctx context.Context, dst io.Writer, src io.Reader) (int64, 
 		if readErr != nil {
 			return written, readErr
 		}
+	}
+}
+
+// The backups folder appears only after the first backup, while its parents sit on the same disk.
+func getNearestExistingFolder(folder string) string {
+	for {
+		if _, err := os.Stat(folder); err == nil {
+			return folder
+		}
+
+		parentFolder := filepath.Dir(folder)
+		if parentFolder == folder {
+			return folder
+		}
+
+		folder = parentFolder
 	}
 }

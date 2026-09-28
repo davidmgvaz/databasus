@@ -290,11 +290,27 @@ export const fr: typeof en = {
       backupsSize: 'Taille totale des sauvegardes',
       backupsSizeHint:
         'Seules les sauvegardes réussies sont comptées. Pour les bases de données physiques, les segments WAL sont inclus.',
-      installation: 'Tous les espaces de travail',
-      installationHint:
-        'Totaux de tous les espaces de travail de cette instance Databasus. Seuls les administrateurs les voient.',
-      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      spaceLeft: 'Espace libre',
+      spaceLeftHint:
+        'Espace libre des stockages capables de le communiquer. Les stockages locaux partagent un disque et comptent une fois. S3, Azure Blob et FTP ne communiquent pas leur espace.',
+      workspaceOfInstallation: '{{workspaceValue}} / {{installationValue}}',
       workspaceOfInstallationHint: 'Cet espace de travail / tous',
+    },
+    storages: {
+      title: 'Stockages',
+      empty: "Cet espace de travail n'a pas encore de stockage",
+      columns: {
+        storage: 'Stockage',
+        type: 'Type',
+        databases: 'Bases de données',
+        backupsSize: 'Taille des sauvegardes',
+        used: 'Utilisé',
+        free: 'Libre',
+        total: 'Total',
+        usage: 'Occupation',
+      },
+      spaceUnavailable: "Ce type de stockage ne communique pas l'espace",
+      spaceError: "Impossible de lire l'espace",
     },
     list: {
       title: 'Bases de données',

@@ -16,6 +16,7 @@ import (
 	rclone_storage "databasus-backend/internal/features/storages/models/rclone"
 	s3_storage "databasus-backend/internal/features/storages/models/s3"
 	sftp_storage "databasus-backend/internal/features/storages/models/sftp"
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 )
 
@@ -88,6 +89,15 @@ func (s *Storage) Validate(encryptor encryption.FieldEncryptor) error {
 
 func (s *Storage) TestConnection(encryptor encryption.FieldEncryptor) error {
 	return s.getSpecificStorage().TestConnection(encryptor)
+}
+
+func (s *Storage) GetUsage(ctx context.Context, encryptor encryption.FieldEncryptor) (*storage_space.Usage, error) {
+	usageReporter, isUsageReporter := s.getSpecificStorage().(StorageUsageReporter)
+	if !isUsageReporter {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+
+	return usageReporter.GetUsage(ctx, encryptor)
 }
 
 func (s *Storage) HideSensitiveData() {

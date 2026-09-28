@@ -17,6 +17,7 @@ import (
 	"github.com/rclone/rclone/fs/config"
 	"github.com/rclone/rclone/fs/operations"
 
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	io_utils "databasus-backend/internal/util/io"
 )
@@ -235,6 +236,34 @@ func (r *RcloneStorage) TestConnection(encryptor encryption.FieldEncryptor) erro
 	return nil
 }
 
+func (r *RcloneStorage) GetUsage(
+	ctx context.Context,
+	encryptor encryption.FieldEncryptor,
+) (*storage_space.Usage, error) {
+	ctx, cancel := context.WithTimeout(ctx, rcloneOperationTimeout)
+	defer cancel()
+
+	remoteFs, err := r.getFs(ctx, encryptor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create rclone filesystem: %w", err)
+	}
+
+	readRemoteUsage := remoteFs.Features().About
+	if readRemoteUsage == nil {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+
+	remoteUsage, err := readRemoteUsage(ctx)
+	if errors.Is(err, fs.ErrorNotImplemented) {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rclone remote usage: %w", err)
+	}
+
+	return toStorageUsage(remoteUsage)
+}
+
 func (r *RcloneStorage) HideSensitiveData() {
 	r.ConfigContent = ""
 }
@@ -349,4 +378,33 @@ func parseConfigContent(content string) (map[string]map[string]string, error) {
 	}
 
 	return sections, scanner.Err()
+}
+
+// Backends fill different subsets of the usage fields, so a missing one is derived from the other
+// two when both are present.
+func toStorageUsage(remoteUsage *fs.Usage) (*storage_space.Usage, error) {
+	if remoteUsage == nil {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+
+	totalBytes, usedBytes, freeBytes := remoteUsage.Total, remoteUsage.Used, remoteUsage.Free
+
+	switch {
+	case totalBytes != nil && usedBytes != nil && freeBytes == nil:
+		freeBytes = new(*totalBytes - *usedBytes)
+	case totalBytes != nil && usedBytes == nil && freeBytes != nil:
+		usedBytes = new(*totalBytes - *freeBytes)
+	case totalBytes == nil && usedBytes != nil && freeBytes != nil:
+		totalBytes = new(*usedBytes + *freeBytes)
+	}
+
+	if totalBytes == nil || usedBytes == nil || freeBytes == nil {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+
+	return &storage_space.Usage{
+		TotalBytes: *totalBytes,
+		UsedBytes:  *usedBytes,
+		FreeBytes:  *freeBytes,
+	}, nil
 }

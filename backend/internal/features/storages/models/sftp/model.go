@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	io_utils "databasus-backend/internal/util/io"
 )
@@ -243,6 +244,41 @@ func (s *SFTPStorage) TestConnection(encryptor encryption.FieldEncryptor) error 
 	return nil
 }
 
+func (s *SFTPStorage) GetUsage(
+	ctx context.Context,
+	encryptor encryption.FieldEncryptor,
+) (*storage_space.Usage, error) {
+	ctx, cancel := context.WithTimeout(ctx, sftpTestConnectTimeout)
+	defer cancel()
+
+	client, sshConn, err := s.connectWithContext(ctx, encryptor, sftpTestConnectTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to SFTP: %w", err)
+	}
+	defer func() {
+		_ = client.Close()
+		_ = sshConn.Close()
+	}()
+
+	fileSystemStats, err := client.StatVFS(s.getMeasuredPath())
+	var statusError *sftp.StatusError
+	if errors.As(err, &statusError) && statusError.FxCode() == sftp.ErrSSHFxOpUnsupported {
+		return nil, storage_space.ErrUsageUnavailable
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read SFTP space: %w", err)
+	}
+
+	blockSizeBytes := fileSystemStats.Frsize
+	totalBytes := int64(fileSystemStats.Blocks * blockSizeBytes)
+
+	return &storage_space.Usage{
+		TotalBytes: totalBytes,
+		UsedBytes:  totalBytes - int64(fileSystemStats.Bfree*blockSizeBytes),
+		FreeBytes:  int64(fileSystemStats.Bavail * blockSizeBytes),
+	}, nil
+}
+
 func (s *SFTPStorage) HideSensitiveData() {
 	s.Password = ""
 	s.PrivateKey = ""
@@ -385,6 +421,14 @@ func (s *SFTPStorage) ensureDirectory(client *sftp.Client, path string) error {
 	}
 
 	return nil
+}
+
+func (s *SFTPStorage) getMeasuredPath() string {
+	if s.Path == "" {
+		return "."
+	}
+
+	return "/" + strings.Trim(s.Path, "/")
 }
 
 func (s *SFTPStorage) getFilePath(filename string) string {

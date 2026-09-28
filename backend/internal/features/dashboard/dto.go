@@ -46,3 +46,29 @@ type DashboardTotals struct {
 	BackupsCount      int64   `json:"backupsCount"`
 	TotalBackupSizeMb float64 `json:"totalBackupSizeMb"`
 }
+
+type WorkspaceStorages struct {
+	Storages       []DashboardStorageUsage `json:"storages"`
+	FreeSpaceBytes *int64                  `json:"freeSpaceBytes,omitempty"`
+}
+
+type InstallationStorages struct {
+	FreeSpaceBytes *int64 `json:"freeSpaceBytes,omitempty"`
+}
+
+type DashboardStorageUsage struct {
+	ID                uuid.UUID              `json:"id"`
+	Name              string                 `json:"name"`
+	Type              storages.StorageType   `json:"type"`
+	DatabasesCount    int64                  `json:"databasesCount"`
+	BackupsSizeMb     float64                `json:"backupsSizeMb"`
+	SpaceStatus       StorageSpaceStatus     `json:"spaceStatus"`
+	Space             *DashboardStorageSpace `json:"space,omitempty"`
+	SpaceErrorMessage *string                `json:"spaceErrorMessage,omitempty"`
+}
+
+type DashboardStorageSpace struct {
+	TotalBytes int64 `json:"totalBytes"`
+	UsedBytes  int64 `json:"usedBytes"`
+	FreeBytes  int64 `json:"freeBytes"`
+}

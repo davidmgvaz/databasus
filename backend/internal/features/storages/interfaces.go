@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 )
 
@@ -43,6 +44,10 @@ type StorageFileSaver interface {
 	HideSensitiveData()
 
 	EncryptSensitiveData(encryptor encryption.FieldEncryptor) error
+}
+
+type StorageUsageReporter interface {
+	GetUsage(ctx context.Context, encryptor encryption.FieldEncryptor) (*storage_space.Usage, error)
 }
 
 type StorageDatabaseCounter interface {

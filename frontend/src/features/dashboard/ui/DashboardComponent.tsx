@@ -11,12 +11,15 @@ import { getStorageLogoFromType } from '../../../entity/storages';
 import { type UserProfile, UserRole } from '../../../entity/users';
 import type { WorkspaceResponse } from '../../../entity/workspaces';
 import { translateApiError, useLocale } from '../../../shared/i18n';
-import { formatSizeMb } from '../../../shared/lib';
+import { formatSizeBytes, formatSizeMb } from '../../../shared/lib';
 import { getUserTimeFormat } from '../../../shared/time';
 import { dashboardApi } from '../api/dashboardApi';
 import type { DashboardDatabase } from '../model/DashboardDatabase';
 import type { DashboardTotals } from '../model/DashboardTotals';
+import type { InstallationStorages } from '../model/InstallationStorages';
 import type { WorkspaceDashboard } from '../model/WorkspaceDashboard';
+import type { WorkspaceStorages } from '../model/WorkspaceStorages';
+import { DashboardStoragesComponent } from './DashboardStoragesComponent';
 
 interface Props {
   workspace: WorkspaceResponse;
@@ -109,6 +112,12 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
   const [installationTotals, setInstallationTotals] = useState<DashboardTotals | undefined>();
   const [isLoading, setIsLoading] = useState(true);
 
+  const [workspaceStorages, setWorkspaceStorages] = useState<WorkspaceStorages | undefined>();
+  const [installationStorages, setInstallationStorages] = useState<
+    InstallationStorages | undefined
+  >();
+  const [isStoragesLoading, setIsStoragesLoading] = useState(true);
+
   const isAdmin = user.role === UserRole.ADMIN;
 
   const loadDashboard = async (isSilent: boolean) => {
@@ -131,6 +140,24 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
     if (!isSilent) {
       setIsLoading(false);
     }
+  };
+
+  const loadStorages = async () => {
+    setIsStoragesLoading(true);
+
+    try {
+      const [loadedWorkspaceStorages, loadedInstallationStorages] = await Promise.all([
+        dashboardApi.getWorkspaceStorages(workspace.id),
+        isAdmin ? dashboardApi.getInstallationStorages() : Promise.resolve(undefined),
+      ]);
+
+      setWorkspaceStorages(loadedWorkspaceStorages);
+      setInstallationStorages(loadedInstallationStorages);
+    } catch (e) {
+      message.error(translateApiError(e, t));
+    }
+
+    setIsStoragesLoading(false);
   };
 
   const renderBackupsCount = (database: DashboardDatabase) => (
@@ -158,13 +185,13 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
       ? renderNoValue()
       : formatSizeMb(database.meanBackupSizeMb, formatNumber);
 
-  const renderCountTileValue = (workspaceCount: number, installationCount?: number) =>
-    installationCount === undefined
-      ? formatNumber(workspaceCount)
-      : t('dashboard.tiles.workspaceOfInstallation', {
-          workspaceCount: formatNumber(workspaceCount),
-          installationCount: formatNumber(installationCount),
-        });
+  const renderWorkspaceOfInstallation = (workspaceValue: string, installationValue?: string) =>
+    installationValue === undefined
+      ? workspaceValue
+      : t('dashboard.tiles.workspaceOfInstallation', { workspaceValue, installationValue });
+
+  const renderFreeSpace = (freeSpaceBytes?: number) =>
+    freeSpaceBytes === undefined ? NO_VALUE : formatSizeBytes(freeSpaceBytes, formatNumber);
 
   const renderLastBackup = (database: DashboardDatabase) => (
     <div className="flex items-center gap-1">
@@ -182,6 +209,10 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
       )}
     </div>
   );
+
+  useEffect(() => {
+    loadStorages();
+  }, [workspace.id]);
 
   useEffect(() => {
     loadDashboard(false);
@@ -205,35 +236,44 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
 
   const { databases, totals } = workspaceDashboard;
 
-  const countTileDetails = installationTotals
-    ? t('dashboard.tiles.workspaceOfInstallationHint')
-    : undefined;
+  const tileDetails = isAdmin ? t('dashboard.tiles.workspaceOfInstallationHint') : undefined;
 
   const summaryTiles: SummaryTile[] = [
     {
       label: t('dashboard.tiles.databases'),
-      value: renderCountTileValue(totals.databasesCount, installationTotals?.databasesCount),
-      details: countTileDetails,
+      value: renderWorkspaceOfInstallation(
+        formatNumber(totals.databasesCount),
+        installationTotals && formatNumber(installationTotals.databasesCount),
+      ),
+      details: tileDetails,
     },
     {
       label: t('dashboard.tiles.backups'),
-      value: renderCountTileValue(totals.backupsCount, installationTotals?.backupsCount),
-      details: countTileDetails,
+      value: renderWorkspaceOfInstallation(
+        formatNumber(totals.backupsCount),
+        installationTotals && formatNumber(installationTotals.backupsCount),
+      ),
+      details: tileDetails,
     },
     {
       label: t('dashboard.tiles.backupsSize'),
-      value: formatSizeMb(totals.totalBackupSizeMb, formatNumber),
+      value: renderWorkspaceOfInstallation(
+        formatSizeMb(totals.totalBackupSizeMb, formatNumber),
+        installationTotals && formatSizeMb(installationTotals.totalBackupSizeMb, formatNumber),
+      ),
       hint: t('dashboard.tiles.backupsSizeHint'),
+      details: tileDetails,
+    },
+    {
+      label: t('dashboard.tiles.spaceLeft'),
+      value: renderWorkspaceOfInstallation(
+        renderFreeSpace(workspaceStorages?.freeSpaceBytes),
+        isAdmin ? renderFreeSpace(installationStorages?.freeSpaceBytes) : undefined,
+      ),
+      hint: t('dashboard.tiles.spaceLeftHint'),
+      details: tileDetails,
     },
   ];
-
-  if (installationTotals) {
-    summaryTiles.push({
-      label: t('dashboard.tiles.installation'),
-      value: formatSizeMb(installationTotals.totalBackupSizeMb, formatNumber),
-      hint: t('dashboard.tiles.installationHint'),
-    });
-  }
 
   const columns: ColumnsType<DashboardDatabase> = [
     {
@@ -290,6 +330,12 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
         {summaryTiles.map((summaryTile) => renderSummaryTile(summaryTile))}
       </div>
+
+      <DashboardStoragesComponent
+        storageUsages={workspaceStorages?.storages}
+        isLoading={isStoragesLoading}
+        onRefresh={loadStorages}
+      />
 
       <div className="mt-2 rounded bg-white p-3 shadow md:mt-3 md:p-5 dark:bg-gray-800">
         <h2 className="text-lg font-bold md:text-xl">{t('dashboard.list.title')}</h2>

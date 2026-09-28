@@ -283,11 +283,27 @@ export const en = {
       backupsSize: 'Total backup size',
       backupsSizeHint:
         'Counts successful backups only. For physical databases, WAL segments are included.',
-      installation: 'All workspaces',
-      installationHint:
-        'Totals across every workspace of this Databasus instance. Only admins see them.',
-      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      spaceLeft: 'Space left',
+      spaceLeftHint:
+        'Free space of the storages that can report it. Local storages share one disk and count once. S3, Azure Blob and FTP cannot report space.',
+      workspaceOfInstallation: '{{workspaceValue}} / {{installationValue}}',
       workspaceOfInstallationHint: 'This workspace / all workspaces',
+    },
+    storages: {
+      title: 'Storages',
+      empty: 'This workspace has no storages yet',
+      columns: {
+        storage: 'Storage',
+        type: 'Type',
+        databases: 'Databases',
+        backupsSize: 'Backups size',
+        used: 'Used',
+        free: 'Free',
+        total: 'Total',
+        usage: 'Usage',
+      },
+      spaceUnavailable: 'Not reported by this storage type',
+      spaceError: 'Could not read space',
     },
     list: {
       title: 'Databases',

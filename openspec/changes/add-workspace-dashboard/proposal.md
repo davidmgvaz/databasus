@@ -35,6 +35,7 @@ None.
 
 ## Out of scope
 
-- Storage usage reported by the storage provider, free space per storage, and charts or history over time.
+- Storage space and the estimated-full date. Both are specified in the separate change `add-storage-space-forecast`.
+- Charts or history over time.
 - Caching or background pre-computation of the aggregates.
 - Changing the databases card list beyond reusing the extracted badge.

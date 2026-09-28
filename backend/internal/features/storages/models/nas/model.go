@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hirochachacha/go-smb2"
 
+	storage_space "databasus-backend/internal/features/storages/space"
 	"databasus-backend/internal/util/encryption"
 	io_utils "databasus-backend/internal/util/io"
 )
@@ -291,6 +292,42 @@ func (n *NASStorage) TestConnection(encryptor encryption.FieldEncryptor) error {
 	}
 
 	return nil
+}
+
+func (n *NASStorage) GetUsage(
+	ctx context.Context,
+	encryptor encryption.FieldEncryptor,
+) (*storage_space.Usage, error) {
+	session, err := n.createSessionWithContext(ctx, encryptor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to NAS: %w", err)
+	}
+	defer func() {
+		_ = session.Logoff()
+	}()
+
+	share, err := session.Mount(n.Share)
+	if err != nil {
+		return nil, fmt.Errorf("failed to access share '%s': %w", n.Share, err)
+	}
+	defer func() {
+		_ = share.Umount()
+	}()
+
+	shareSpace, err := share.Statfs("")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read space of share '%s': %w", n.Share, err)
+	}
+
+	blockSizeBytes := shareSpace.BlockSize()
+	totalBytes := int64(shareSpace.TotalBlockCount() * blockSizeBytes)
+	freeBytes := int64(shareSpace.AvailableBlockCount() * blockSizeBytes)
+
+	return &storage_space.Usage{
+		TotalBytes: totalBytes,
+		UsedBytes:  totalBytes - int64(shareSpace.FreeBlockCount()*blockSizeBytes),
+		FreeBytes:  freeBytes,
+	}, nil
 }
 
 func (n *NASStorage) HideSensitiveData() {

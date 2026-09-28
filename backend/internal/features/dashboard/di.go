@@ -8,6 +8,7 @@ import (
 	"databasus-backend/internal/features/databases"
 	healthcheck_attempt "databasus-backend/internal/features/healthcheck/attempt"
 	healthcheck_config "databasus-backend/internal/features/healthcheck/config"
+	"databasus-backend/internal/features/storages"
 	"databasus-backend/internal/util/logger"
 )
 
@@ -19,6 +20,7 @@ var dashboardService = &DashboardService{
 	backups_config_physical.GetBackupConfigService(),
 	healthcheck_config.GetHealthcheckConfigService(),
 	healthcheck_attempt.GetHealthcheckAttemptService(),
+	storages.GetStorageService(),
 }
 
 var dashboardController = &DashboardController{

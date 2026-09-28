@@ -311,6 +311,108 @@ func Test_GetInstallationDashboard_WhenUserIsMember_ReturnsForbidden(t *testing.
 	assert.Contains(t, string(response.Body), "Insufficient permissions")
 }
 
+func Test_GetWorkspaceStorages_WithLocalStorage_ReturnsSpaceAndDatabaseTotals(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	database := createTestLogicalDatabase(t, testWorkspace)
+	backups_controllers_logical.CreateTestBackup(database.ID, testWorkspace.storage.ID)
+	backups_controllers_logical.CreateTestBackup(database.ID, testWorkspace.storage.ID)
+
+	var workspaceStorages WorkspaceStorages
+	test_utils.MakeGetRequestAndUnmarshal(
+		t,
+		testWorkspace.router,
+		getWorkspaceStoragesURL(testWorkspace.workspace),
+		"Bearer "+testWorkspace.owner.Token,
+		http.StatusOK,
+		&workspaceStorages,
+	)
+
+	require.Len(t, workspaceStorages.Storages, 1)
+	storageUsage := workspaceStorages.Storages[0]
+	assert.Equal(t, testWorkspace.storage.ID, storageUsage.ID)
+	assert.Equal(t, storages.StorageTypeLocal, storageUsage.Type)
+	assert.Equal(t, int64(1), storageUsage.DatabasesCount)
+	assert.InDelta(t, 21.0, storageUsage.BackupsSizeMb, 0.001)
+	assert.Equal(t, StorageSpaceStatusAvailable, storageUsage.SpaceStatus)
+	require.NotNil(t, storageUsage.Space)
+	assert.Positive(t, storageUsage.Space.TotalBytes)
+	assert.LessOrEqual(t, storageUsage.Space.FreeBytes, storageUsage.Space.TotalBytes)
+	require.NotNil(t, workspaceStorages.FreeSpaceBytes)
+	assert.Equal(t, storageUsage.Space.FreeBytes, *workspaceStorages.FreeSpaceBytes)
+}
+
+func Test_GetWorkspaceStorages_WhenUserIsViewer_ReturnsStorages(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+
+	viewer := users_testing.CreateTestUser(t.Context(), users_enums.UserRoleMember)
+	workspaces_testing.AddMemberToWorkspace(
+		testWorkspace.workspace,
+		viewer,
+		users_enums.WorkspaceRoleViewer,
+		testWorkspace.owner.Token,
+		testWorkspace.router,
+	)
+
+	var workspaceStorages WorkspaceStorages
+	test_utils.MakeGetRequestAndUnmarshal(
+		t,
+		testWorkspace.router,
+		getWorkspaceStoragesURL(testWorkspace.workspace),
+		"Bearer "+viewer.Token,
+		http.StatusOK,
+		&workspaceStorages,
+	)
+
+	assert.Len(t, workspaceStorages.Storages, 1)
+}
+
+func Test_GetWorkspaceStorages_WhenUserIsNotMember_ReturnsBadRequest(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	nonMember := users_testing.CreateTestUser(t.Context(), users_enums.UserRoleMember)
+
+	response := test_utils.MakeGetRequest(
+		t,
+		testWorkspace.router,
+		getWorkspaceStoragesURL(testWorkspace.workspace),
+		"Bearer "+nonMember.Token,
+		http.StatusBadRequest,
+	)
+
+	assert.Contains(t, string(response.Body), "insufficient permissions to access this workspace")
+}
+
+func Test_GetInstallationStorages_WhenUserIsAdmin_ReturnsFreeSpace(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	admin := users_testing.CreateTestUser(t.Context(), users_enums.UserRoleAdmin)
+
+	var installationStorages InstallationStorages
+	test_utils.MakeGetRequestAndUnmarshal(
+		t,
+		testWorkspace.router,
+		"/api/v1/dashboard/installation/storages",
+		"Bearer "+admin.Token,
+		http.StatusOK,
+		&installationStorages,
+	)
+
+	require.NotNil(t, installationStorages.FreeSpaceBytes)
+	assert.Positive(t, *installationStorages.FreeSpaceBytes)
+}
+
+func Test_GetInstallationStorages_WhenUserIsMember_ReturnsForbidden(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+
+	response := test_utils.MakeGetRequest(
+		t,
+		testWorkspace.router,
+		"/api/v1/dashboard/installation/storages",
+		"Bearer "+testWorkspace.owner.Token,
+		http.StatusForbidden,
+	)
+
+	assert.Contains(t, string(response.Body), "Insufficient permissions")
+}
+
 func createDashboardTestWorkspace(t *testing.T) *dashboardTestWorkspace {
 	t.Helper()
 
@@ -370,6 +472,10 @@ func createTestPhysicalDatabase(t *testing.T, testWorkspace *dashboardTestWorksp
 
 func getWorkspaceDashboardURL(workspace *workspaces_models.Workspace) string {
 	return fmt.Sprintf("/api/v1/dashboard?workspace_id=%s", workspace.ID.String())
+}
+
+func getWorkspaceStoragesURL(workspace *workspaces_models.Workspace) string {
+	return fmt.Sprintf("/api/v1/dashboard/storages?workspace_id=%s", workspace.ID.String())
 }
 
 func findDashboardDatabase(

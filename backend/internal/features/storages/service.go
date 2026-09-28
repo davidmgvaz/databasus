@@ -2,17 +2,24 @@ package storages
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
 	audit_logs "databasus-backend/internal/features/audit_logs"
 	audit_logs_models "databasus-backend/internal/features/audit_logs/models"
+	storage_space "databasus-backend/internal/features/storages/space"
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
 	"databasus-backend/internal/util/encryption"
 )
+
+// A remote that hangs must not hold the dashboard open, and a healthy one answers well inside this.
+const storageUsageProbeTimeout = 15 * time.Second
 
 type StorageService struct {
 	storageRepository       *StorageRepository
@@ -374,6 +381,36 @@ func (s *StorageService) GetAllStorages() ([]*Storage, error) {
 	return s.storageRepository.GetAllStorages()
 }
 
+func (s *StorageService) GetStorageUsagesByWorkspace(
+	ctx context.Context,
+	user *users_models.User,
+	workspaceID uuid.UUID,
+) ([]StorageUsageReport, error) {
+	canView, _, err := s.workspaceService.CanUserAccessWorkspace(ctx, workspaceID, user)
+	if err != nil {
+		return nil, err
+	}
+	if !canView {
+		return nil, ErrInsufficientPermissionsToViewStorages
+	}
+
+	workspaceStorages, err := s.storageRepository.FindByWorkspaceID(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.probeStorageUsages(ctx, workspaceStorages), nil
+}
+
+func (s *StorageService) GetAllStorageUsages(ctx context.Context) ([]StorageUsageReport, error) {
+	allStorages, err := s.storageRepository.GetAllStorages()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.probeStorageUsages(ctx, allStorages), nil
+}
+
 func (s *StorageService) TransferStorageToWorkspace(
 	ctx context.Context,
 	user *users_models.User,
@@ -456,4 +493,36 @@ func (s *StorageService) TransferStorageToWorkspace(
 	})
 
 	return nil
+}
+
+func (s *StorageService) probeStorageUsages(
+	ctx context.Context,
+	storagesToProbe []*Storage,
+) []StorageUsageReport {
+	usageReports := make([]StorageUsageReport, len(storagesToProbe))
+
+	var probes sync.WaitGroup
+	for storageIndex, storage := range storagesToProbe {
+		probes.Go(func() {
+			probeCtx, cancel := context.WithTimeout(ctx, storageUsageProbeTimeout)
+			defer cancel()
+
+			usage, err := storage.GetUsage(probeCtx, s.fieldEncryptor)
+
+			usageReports[storageIndex] = StorageUsageReport{
+				StorageID:     storage.ID,
+				StorageName:   storage.Name,
+				StorageType:   storage.Type,
+				Usage:         usage,
+				IsUnavailable: errors.Is(err, storage_space.ErrUsageUnavailable),
+			}
+
+			if err != nil && !usageReports[storageIndex].IsUnavailable {
+				usageReports[storageIndex].ProbeError = err
+			}
+		})
+	}
+	probes.Wait()
+
+	return usageReports
 }

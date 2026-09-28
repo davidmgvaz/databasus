@@ -289,11 +289,27 @@ export const pt: typeof en = {
       backupsSize: 'Tamanho total dos backups',
       backupsSizeHint:
         'Conta apenas os backups bem-sucedidos. Nos bancos de dados físicos, os segmentos WAL também entram no total.',
-      installation: 'Todos os espaços de trabalho',
-      installationHint:
-        'Totais de todos os espaços de trabalho desta instância do Databasus. Só os administradores veem esses números.',
-      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      spaceLeft: 'Espaço livre',
+      spaceLeftHint:
+        'Espaço livre dos armazenamentos que conseguem informá-lo. Os armazenamentos locais compartilham um disco e contam uma vez. S3, Azure Blob e FTP não informam o espaço.',
+      workspaceOfInstallation: '{{workspaceValue}} / {{installationValue}}',
       workspaceOfInstallationHint: 'Este espaço de trabalho / todos',
+    },
+    storages: {
+      title: 'Armazenamentos',
+      empty: 'Este espaço de trabalho ainda não tem armazenamentos',
+      columns: {
+        storage: 'Armazenamento',
+        type: 'Tipo',
+        databases: 'Bancos de dados',
+        backupsSize: 'Tamanho dos backups',
+        used: 'Usado',
+        free: 'Livre',
+        total: 'Total',
+        usage: 'Ocupação',
+      },
+      spaceUnavailable: 'Este tipo de armazenamento não informa o espaço',
+      spaceError: 'Não foi possível ler o espaço',
     },
     list: {
       title: 'Bancos de dados',
