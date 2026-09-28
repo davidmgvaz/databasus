@@ -11,16 +11,24 @@ import (
 )
 
 var (
-	storageRepository = &StorageRepository{}
-	storageService    = &StorageService{
+	storageRepository            = &StorageRepository{}
+	storageUsageSampleRepository = &StorageUsageSampleRepository{}
+	storageService               = &StorageService{
 		storageRepository,
 		workspaces_services.GetWorkspaceService(),
 		audit_logs.GetAuditLogService(),
 		encryption.GetFieldEncryptor(),
 		nil,
 		nil,
+		storageUsageSampleRepository,
 	}
 )
+
+var storageUsageSampler = &StorageUsageSampler{
+	storageService:        storageService,
+	usageSampleRepository: storageUsageSampleRepository,
+	logger:                logger.GetLogger(),
+}
 
 var (
 	storageFileDependencies = storage_files.Dependencies{
@@ -49,6 +57,10 @@ func GetStorageController() *StorageController {
 
 func GetStorageFileStore() *storage_files.Store {
 	return storageFileStore
+}
+
+func GetStorageUsageSampler() *StorageUsageSampler {
+	return storageUsageSampler
 }
 
 func GetStorageFileDeletionWorker() *storage_files.DeletionWorker {

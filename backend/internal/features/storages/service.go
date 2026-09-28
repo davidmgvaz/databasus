@@ -28,6 +28,7 @@ type StorageService struct {
 	fieldEncryptor          encryption.FieldEncryptor
 	storageDatabaseCounters []StorageDatabaseCounter
 	storageBackupCounters   []StorageBackupCounter
+	usageSampleRepository   *StorageUsageSampleRepository
 }
 
 func (s *StorageService) AddStorageDatabaseCounter(counter StorageDatabaseCounter) {
@@ -409,6 +410,23 @@ func (s *StorageService) GetAllStorageUsages(ctx context.Context) ([]StorageUsag
 	}
 
 	return s.probeStorageUsages(ctx, allStorages), nil
+}
+
+func (s *StorageService) GetUsageSamplesSince(
+	storageIDs []uuid.UUID,
+	since time.Time,
+) (map[uuid.UUID][]StorageUsageSample, error) {
+	samples, err := s.usageSampleRepository.FindSinceByStorageIDs(storageIDs, since)
+	if err != nil {
+		return nil, err
+	}
+
+	samplesByStorageID := make(map[uuid.UUID][]StorageUsageSample, len(storageIDs))
+	for _, sample := range samples {
+		samplesByStorageID[sample.StorageID] = append(samplesByStorageID[sample.StorageID], sample)
+	}
+
+	return samplesByStorageID, nil
 }
 
 func (s *StorageService) TransferStorageToWorkspace(

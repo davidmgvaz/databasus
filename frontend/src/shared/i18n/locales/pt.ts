@@ -307,9 +307,16 @@ export const pt: typeof en = {
         free: 'Livre',
         total: 'Total',
         usage: 'Ocupação',
+        estimatedFull: 'Cheio em',
       },
       spaceUnavailable: 'Este tipo de armazenamento não informa o espaço',
       spaceError: 'Não foi possível ler o espaço',
+      forecast: {
+        notFillingUp: 'Não está enchendo',
+        collecting: 'Coletando dados: {{sampleCount}}/{{requiredSampleCount}} dias',
+        collectingHint:
+          'O espaço é registrado uma vez por dia. A estimativa aparece após uma semana de registros e usa os últimos 30 dias.',
+      },
     },
     list: {
       title: 'Bancos de dados',

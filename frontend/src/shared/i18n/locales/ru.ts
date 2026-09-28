@@ -302,9 +302,16 @@ export const ru: typeof en = {
         free: 'Свободно',
         total: 'Всего',
         usage: 'Заполнено',
+        estimatedFull: 'Заполнится',
       },
       spaceUnavailable: 'Этот тип хранилища не сообщает место',
       spaceError: 'Не удалось узнать место',
+      forecast: {
+        notFillingUp: 'Не заполняется',
+        collecting: 'Сбор данных: {{sampleCount}}/{{requiredSampleCount}} дн.',
+        collectingHint:
+          'Место записывается раз в день. Прогноз появится через неделю записей и строится по последним 30 дням.',
+      },
     },
     list: {
       title: 'Базы данных',

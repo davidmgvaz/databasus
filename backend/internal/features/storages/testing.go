@@ -96,3 +96,10 @@ func RemoveTestStorage(ctx context.Context, id uuid.UUID) {
 		panic(err)
 	}
 }
+
+// Samples have no API: only the sampling job writes them, so tests insert them directly.
+func CreateTestUsageSample(sample StorageUsageSample) {
+	if err := storageUsageSampleRepository.Insert(&sample); err != nil {
+		panic(err)
+	}
+}

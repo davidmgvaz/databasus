@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import { Button, Progress, Spin, Table, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import dayjs from 'dayjs';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +14,9 @@ import { STORAGE_TYPE_LABEL_KEYS, getStorageLogoFromType } from '../../../entity
 import { usePersistentState } from '../../../shared/hooks';
 import { useLocale } from '../../../shared/i18n';
 import { formatSizeBytes, formatSizeMb } from '../../../shared/lib';
+import { getUserTimeFormat } from '../../../shared/time';
 import type { DashboardStorageUsage } from '../model/DashboardStorageUsage';
+import { StorageFullForecastStatus } from '../model/StorageFullForecastStatus';
 import { StorageSpaceStatus } from '../model/StorageSpaceStatus';
 
 interface Props {
@@ -53,7 +56,7 @@ const renderMobileField = (label: string, value: ReactNode) => (
 
 export const DashboardStoragesComponent = ({ storageUsages, isLoading, onRefresh }: Props) => {
   const { t } = useTranslation();
-  const { formatNumber } = useLocale();
+  const { formatNumber, formatRelativeTime } = useLocale();
 
   const [isExpanded, setIsExpanded] = usePersistentState(EXPANDED_STORAGE_KEY, true);
 
@@ -99,6 +102,40 @@ export const DashboardStoragesComponent = ({ storageUsages, isLoading, onRefresh
         />
       </div>
     );
+  };
+
+  const renderFullForecast = (storageUsage: DashboardStorageUsage) => {
+    const { fullForecast } = storageUsage;
+
+    switch (fullForecast.status) {
+      case StorageFullForecastStatus.FILLING_UP:
+        return fullForecast.estimatedFullAt ? (
+          <Tooltip title={dayjs(fullForecast.estimatedFullAt).format(getUserTimeFormat().format)}>
+            <span>{formatRelativeTime(fullForecast.estimatedFullAt)}</span>
+          </Tooltip>
+        ) : (
+          renderNoValue()
+        );
+      case StorageFullForecastStatus.NOT_FILLING_UP:
+        return (
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {t('dashboard.storages.forecast.notFillingUp')}
+          </span>
+        );
+      case StorageFullForecastStatus.COLLECTING:
+        return (
+          <Tooltip title={t('dashboard.storages.forecast.collectingHint')}>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {t('dashboard.storages.forecast.collecting', {
+                sampleCount: formatNumber(fullForecast.sampleCount),
+                requiredSampleCount: formatNumber(fullForecast.requiredSampleCount),
+              })}
+            </span>
+          </Tooltip>
+        );
+      default:
+        return renderNoValue();
+    }
   };
 
   const columns: ColumnsType<DashboardStorageUsage> = [
@@ -152,6 +189,11 @@ export const DashboardStoragesComponent = ({ storageUsages, isLoading, onRefresh
       key: 'usage',
       render: (_: unknown, storageUsage: DashboardStorageUsage) => renderUsage(storageUsage),
       sorter: (a, b) => (getUsedPercent(a) ?? -1) - (getUsedPercent(b) ?? -1),
+    },
+    {
+      title: t('dashboard.storages.columns.estimatedFull'),
+      key: 'estimatedFullAt',
+      render: (_: unknown, storageUsage: DashboardStorageUsage) => renderFullForecast(storageUsage),
     },
   ];
 
@@ -217,6 +259,10 @@ export const DashboardStoragesComponent = ({ storageUsages, isLoading, onRefresh
                 {renderMobileField(
                   t('dashboard.storages.columns.total'),
                   renderSpaceBytes(storageUsage, storageUsage.space?.totalBytes),
+                )}
+                {renderMobileField(
+                  t('dashboard.storages.columns.estimatedFull'),
+                  renderFullForecast(storageUsage),
                 )}
               </div>
             </div>

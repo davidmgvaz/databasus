@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -413,6 +414,45 @@ func Test_GetInstallationStorages_WhenUserIsMember_ReturnsForbidden(t *testing.T
 	assert.Contains(t, string(response.Body), "Insufficient permissions")
 }
 
+func Test_GetWorkspaceStorages_WithRisingUsageSamples_ReturnsFullDateInFuture(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	createDailyUsageSamples(testWorkspace.storage.ID, []int64{100, 150, 200, 250, 300, 350, 400, 450})
+
+	storageUsage := getSingleStorageUsage(t, testWorkspace)
+
+	assert.Equal(t, StorageFullForecastStatusFillingUp, storageUsage.FullForecast.Status)
+	assert.Equal(t, 8, storageUsage.FullForecast.SampleCount)
+	require.NotNil(t, storageUsage.FullForecast.EstimatedFullAt)
+	assert.True(t, storageUsage.FullForecast.EstimatedFullAt.After(time.Now().UTC()))
+	assert.WithinDuration(
+		t,
+		time.Now().UTC().Add(10*24*time.Hour),
+		*storageUsage.FullForecast.EstimatedFullAt,
+		time.Hour,
+	)
+}
+
+func Test_GetWorkspaceStorages_WithFallingUsageSamples_ReturnsNotFillingUp(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	createDailyUsageSamples(testWorkspace.storage.ID, []int64{800, 750, 700, 650, 600, 550, 500, 450})
+
+	storageUsage := getSingleStorageUsage(t, testWorkspace)
+
+	assert.Equal(t, StorageFullForecastStatusNotFillingUp, storageUsage.FullForecast.Status)
+	assert.Nil(t, storageUsage.FullForecast.EstimatedFullAt)
+}
+
+func Test_GetWorkspaceStorages_WithFewUsageSamples_ReturnsCollecting(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	createDailyUsageSamples(testWorkspace.storage.ID, []int64{100, 150, 200})
+
+	storageUsage := getSingleStorageUsage(t, testWorkspace)
+
+	assert.Equal(t, StorageFullForecastStatusCollecting, storageUsage.FullForecast.Status)
+	assert.Equal(t, 3, storageUsage.FullForecast.SampleCount)
+	assert.Equal(t, 7, storageUsage.FullForecast.RequiredSampleCount)
+}
+
 func createDashboardTestWorkspace(t *testing.T) *dashboardTestWorkspace {
 	t.Helper()
 
@@ -476,6 +516,40 @@ func getWorkspaceDashboardURL(workspace *workspaces_models.Workspace) string {
 
 func getWorkspaceStoragesURL(workspace *workspaces_models.Workspace) string {
 	return fmt.Sprintf("/api/v1/dashboard/storages?workspace_id=%s", workspace.ID.String())
+}
+
+// Samples end yesterday and go back one day each, so the last value is the most recent one.
+func createDailyUsageSamples(storageID uuid.UUID, usedBytesByDay []int64) {
+	const totalBytes = 1000
+
+	firstDay := time.Now().UTC().Add(-time.Duration(len(usedBytesByDay)) * 24 * time.Hour)
+	for dayIndex, usedBytes := range usedBytesByDay {
+		storages.CreateTestUsageSample(storages.StorageUsageSample{
+			StorageID:  storageID,
+			SampledAt:  firstDay.Add(time.Duration(dayIndex) * 24 * time.Hour),
+			TotalBytes: totalBytes,
+			UsedBytes:  usedBytes,
+			FreeBytes:  totalBytes - usedBytes,
+		})
+	}
+}
+
+func getSingleStorageUsage(t *testing.T, testWorkspace *dashboardTestWorkspace) DashboardStorageUsage {
+	t.Helper()
+
+	var workspaceStorages WorkspaceStorages
+	test_utils.MakeGetRequestAndUnmarshal(
+		t,
+		testWorkspace.router,
+		getWorkspaceStoragesURL(testWorkspace.workspace),
+		"Bearer "+testWorkspace.owner.Token,
+		http.StatusOK,
+		&workspaceStorages,
+	)
+
+	require.Len(t, workspaceStorages.Storages, 1)
+
+	return workspaceStorages.Storages[0]
 }
 
 func findDashboardDatabase(

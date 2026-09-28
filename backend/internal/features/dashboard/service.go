@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -18,9 +19,16 @@ import (
 	healthcheck_config "databasus-backend/internal/features/healthcheck/config"
 	"databasus-backend/internal/features/storages"
 	users_models "databasus-backend/internal/features/users/models"
+	"databasus-backend/internal/util/statistics"
 )
 
-const recentHealthcheckAttemptsLimit = 10
+const (
+	recentHealthcheckAttemptsLimit = 10
+
+	// The same window and minimum Proxmox Backup Server uses for its "estimated full" date.
+	storageFullForecastWindow          = 30 * 24 * time.Hour
+	storageFullForecastRequiredSamples = 7
+)
 
 // Errors after the workspace check come from aggregate queries whose text names tables and
 // drivers, so the controller answers them with a generic message instead of the text.
@@ -157,6 +165,18 @@ func (s *DashboardService) GetWorkspaceStorages(
 		backupsSizeMbByStorageID[dashboardDatabase.Storage.ID] += dashboardDatabase.TotalBackupSizeMb
 	}
 
+	storageIDs := make([]uuid.UUID, 0, len(usageReports))
+	for _, usageReport := range usageReports {
+		storageIDs = append(storageIDs, usageReport.StorageID)
+	}
+
+	now := time.Now().UTC()
+
+	samplesByStorageID, err := s.storageService.GetUsageSamplesSince(storageIDs, now.Add(-storageFullForecastWindow))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
+	}
+
 	workspaceStorages := &WorkspaceStorages{
 		Storages:       make([]DashboardStorageUsage, 0, len(usageReports)),
 		FreeSpaceBytes: sumFreeSpaceBytes(usageReports),
@@ -166,6 +186,11 @@ func (s *DashboardService) GetWorkspaceStorages(
 		storageUsage := toDashboardStorageUsage(usageReport)
 		storageUsage.DatabasesCount = databasesCountByStorageID[usageReport.StorageID]
 		storageUsage.BackupsSizeMb = backupsSizeMbByStorageID[usageReport.StorageID]
+		storageUsage.FullForecast = forecastStorageFull(
+			storageUsage.SpaceStatus,
+			samplesByStorageID[usageReport.StorageID],
+			now,
+		)
 
 		workspaceStorages.Storages = append(workspaceStorages.Storages, storageUsage)
 	}
@@ -361,4 +386,54 @@ func sumFreeSpaceBytes(usageReports []storages.StorageUsageReport) *int64 {
 	}
 
 	return freeSpaceBytes
+}
+
+func forecastStorageFull(
+	spaceStatus StorageSpaceStatus,
+	usageSamples []storages.StorageUsageSample,
+	now time.Time,
+) StorageFullForecast {
+	forecast := StorageFullForecast{
+		SampleCount:         len(usageSamples),
+		RequiredSampleCount: storageFullForecastRequiredSamples,
+	}
+
+	switch {
+	case spaceStatus == StorageSpaceStatusUnavailable && len(usageSamples) == 0:
+		forecast.Status = StorageFullForecastStatusNotApplicable
+		return forecast
+	case len(usageSamples) < storageFullForecastRequiredSamples:
+		forecast.Status = StorageFullForecastStatusCollecting
+		return forecast
+	}
+
+	firstSampledAt := usageSamples[0].SampledAt
+	usedShareOverTime := make([]statistics.Point, 0, len(usageSamples))
+	for _, usageSample := range usageSamples {
+		if usageSample.TotalBytes <= 0 {
+			continue
+		}
+
+		usedShareOverTime = append(usedShareOverTime, statistics.Point{
+			X: usageSample.SampledAt.Sub(firstSampledAt).Seconds(),
+			Y: float64(usageSample.UsedBytes) / float64(usageSample.TotalBytes),
+		})
+	}
+
+	usedShareTrend, isFitted := statistics.FitLine(usedShareOverTime)
+	if !isFitted || usedShareTrend.Slope <= 0 {
+		forecast.Status = StorageFullForecastStatusNotFillingUp
+		return forecast
+	}
+
+	secondsUntilFull := (1 - usedShareTrend.Intercept) / usedShareTrend.Slope
+	estimatedFullAt := firstSampledAt.Add(time.Duration(secondsUntilFull * float64(time.Second)))
+	if estimatedFullAt.Before(now) {
+		estimatedFullAt = now
+	}
+
+	forecast.Status = StorageFullForecastStatusFillingUp
+	forecast.EstimatedFullAt = &estimatedFullAt
+
+	return forecast
 }

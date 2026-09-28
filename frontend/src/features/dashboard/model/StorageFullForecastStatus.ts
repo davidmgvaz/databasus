@@ -1,0 +1,6 @@
+export enum StorageFullForecastStatus {
+  NOT_APPLICABLE = 'NOT_APPLICABLE',
+  COLLECTING = 'COLLECTING',
+  FILLING_UP = 'FILLING_UP',
+  NOT_FILLING_UP = 'NOT_FILLING_UP',
+}

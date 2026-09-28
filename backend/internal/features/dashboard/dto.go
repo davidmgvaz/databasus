@@ -65,6 +65,14 @@ type DashboardStorageUsage struct {
 	SpaceStatus       StorageSpaceStatus     `json:"spaceStatus"`
 	Space             *DashboardStorageSpace `json:"space,omitempty"`
 	SpaceErrorMessage *string                `json:"spaceErrorMessage,omitempty"`
+	FullForecast      StorageFullForecast    `json:"fullForecast"`
+}
+
+type StorageFullForecast struct {
+	Status              StorageFullForecastStatus `json:"status"`
+	EstimatedFullAt     *time.Time                `json:"estimatedFullAt,omitempty"`
+	SampleCount         int                       `json:"sampleCount"`
+	RequiredSampleCount int                       `json:"requiredSampleCount"`
 }
 
 type DashboardStorageSpace struct {

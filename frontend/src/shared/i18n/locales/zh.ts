@@ -292,9 +292,15 @@ export const zh: typeof en = {
         free: '可用',
         total: '总量',
         usage: '使用率',
+        estimatedFull: '预计写满',
       },
       spaceUnavailable: '此存储类型不报告空间',
       spaceError: '无法读取空间',
+      forecast: {
+        notFillingUp: '未在增长',
+        collecting: '正在收集数据：{{sampleCount}}/{{requiredSampleCount}} 天',
+        collectingHint: '每天记录一次空间。积累一周记录后显示预计时间，按最近 30 天计算。',
+      },
     },
     list: {
       title: '数据库',

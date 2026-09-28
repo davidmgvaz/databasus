@@ -301,9 +301,16 @@ export const en = {
         free: 'Free',
         total: 'Total',
         usage: 'Usage',
+        estimatedFull: 'Estimated full',
       },
       spaceUnavailable: 'Not reported by this storage type',
       spaceError: 'Could not read space',
+      forecast: {
+        notFillingUp: 'Not filling up',
+        collecting: 'Collecting data: {{sampleCount}}/{{requiredSampleCount}} days',
+        collectingHint:
+          'Space is recorded once a day. The estimate appears after a week of records and uses the last 30 days.',
+      },
     },
     list: {
       title: 'Databases',

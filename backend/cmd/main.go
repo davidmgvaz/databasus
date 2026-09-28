@@ -447,6 +447,10 @@ func runBackgroundTasks(log *slog.Logger) {
 		storages.GetStorageFileDeletionWorker().Run(ctx)
 	})
 
+	go runWithPanicLogging(log, "storage usage sampling background service", func() {
+		storages.GetStorageUsageSampler().Run(ctx)
+	})
+
 	go runWithPanicLogging(log, "sign-in code cleanup background service", func() {
 		users_services.GetSignInCodeBackgroundService().Run(ctx)
 	})

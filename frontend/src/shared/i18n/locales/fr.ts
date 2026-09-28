@@ -308,9 +308,16 @@ export const fr: typeof en = {
         free: 'Libre',
         total: 'Total',
         usage: 'Occupation',
+        estimatedFull: 'Plein estimé',
       },
       spaceUnavailable: "Ce type de stockage ne communique pas l'espace",
       spaceError: "Impossible de lire l'espace",
+      forecast: {
+        notFillingUp: 'Ne se remplit pas',
+        collecting: 'Collecte des données : {{sampleCount}}/{{requiredSampleCount}} jours',
+        collectingHint:
+          "L'espace est relevé une fois par jour. L'estimation apparaît après une semaine de relevés et porte sur les 30 derniers jours.",
+      },
     },
     list: {
       title: 'Bases de données',

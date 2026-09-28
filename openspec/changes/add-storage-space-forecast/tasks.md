@@ -13,11 +13,11 @@
 ## 2. Estimated full
 
 - [ ] 2.1 Add the `storage_usage_samples` migration and repository; verify `make migration-up`
-- [ ] 2.2 Add the daily sampling job and start it from `cmd/main.go`; verify `go build ./...`
-- [ ] 2.3 Add the line-fit helper with a unit test; verify `go test ./internal/util/statistics/... -count=1`
+- [x] 2.2 Add the daily sampling job and start it from `cmd/main.go`; verify `go build ./...`
+- [x] 2.3 Add the line-fit helper with a unit test; verify `go test ./internal/util/statistics/... -count=1`
 - [ ] 2.4 Add the forecast to the storages response with controller tests; verify `go test ./internal/features/dashboard/... -count=1`
-- [ ] 2.5 Show the forecast column on the dashboard in all six languages; verify `pnpm build`
-- [ ] 2.6 Lint; verify `make lint`, `pnpm lint`
+- [x] 2.5 Show the forecast column on the dashboard in all six languages; verify `pnpm build`
+- [x] 2.6 Lint; verify `make lint`, `pnpm lint`
 
 ## 3. Review
 
