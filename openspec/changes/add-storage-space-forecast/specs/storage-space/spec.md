@@ -25,7 +25,7 @@ The system SHALL read total, used and free bytes from local, NAS, SFTP, rclone a
 
 ### Requirement: The dashboard lists the workspace's storages above its databases
 
-The system SHALL list every storage of the workspace with its type, the number of the workspace's databases that back up to it, the size of their stored backups, and its used, free and total space with the used share. The list SHALL be collapsible and SHALL remember whether it was collapsed. It SHALL refresh on demand rather than on the dashboard's minute cycle, because reading remote space can take seconds.
+The system SHALL list every storage of the workspace with its type, the number of the workspace's databases that back up to it, the size of their stored backups, and its used, free and total space with the used share. The list SHALL be collapsible and SHALL remember whether it was collapsed. It SHALL refresh on demand rather than on the dashboard's minute cycle, because reading remote space can take seconds. A reading, including a failed one, MAY be reused for up to one minute.
 
 #### Scenario: A storage nearly full
 
@@ -55,6 +55,11 @@ The system SHALL let any member of a workspace, viewers included, and any global
 - **WHEN** a user outside the workspace requests its storages
 - **THEN** the request is refused with "insufficient permissions to access this workspace"
 
+#### Scenario: A member refreshes the storages repeatedly
+
+- **WHEN** a member refreshes the storages list many times within a minute
+- **THEN** each storage is contacted at most once in that minute, and no more than four storages are contacted at the same time across all requests
+
 #### Scenario: A member asks for the installation's space
 
 - **WHEN** a user who is not a global admin requests the free space across every storage
@@ -62,7 +67,7 @@ The system SHALL let any member of a workspace, viewers included, and any global
 
 ### Requirement: The system predicts when a storage will be full
 
-The system SHALL record the space of every reporting storage once a day and keep 90 days of records. From the records of the last 30 days it SHALL fit a straight line to the used share over time and show the date the line reaches 100%. With fewer than seven records it SHALL say it is still collecting data. When the used share is flat or falling, or rises so slowly that the full date lies more than ten years away, it SHALL say the storage is not filling up.
+The system SHALL record the space of every reporting storage at most once per calendar day in UTC, even when two recordings race, and keep 90 days of records. From the records of the last 30 days it SHALL fit a straight line to the used share over time and show the date the line reaches 100%. With fewer than seven records it SHALL say it is still collecting data. When the used share is flat or falling, or rises so slowly that the full date lies more than ten years away, it SHALL say the storage is not filling up.
 
 #### Scenario: A steadily filling storage
 

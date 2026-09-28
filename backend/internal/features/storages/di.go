@@ -6,6 +6,7 @@ import (
 	audit_logs "databasus-backend/internal/features/audit_logs"
 	storage_files "databasus-backend/internal/features/storages/files"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
+	"databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/encryption"
 	"databasus-backend/internal/util/logger"
 )
@@ -21,6 +22,12 @@ var (
 		nil,
 		nil,
 		storageUsageSampleRepository,
+		cache.NewJSONStoreWithLifetime[cachedStorageUsage](
+			cache.GetStore(),
+			"storage_usage",
+			storageUsageCacheLifetime,
+		),
+		make(chan struct{}, storageUsageMaxParallelProbes),
 	}
 )
 

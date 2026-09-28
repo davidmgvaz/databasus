@@ -41,6 +41,12 @@ Rejected alternative: measuring the parent folder unconditionally, as `GET /disk
 
 Rejected alternative: failing the request on the first probe error. A single offline NAS would blank the whole storages list.
 
+### Reuse readings for a minute and cap parallel probes
+
+Each storage's reading, failures included, is cached for one minute in the process cache (`internal/util/cache`), and a shared slot channel lets at most four probes run at once across all requests. Any workspace member can refresh the storages list; without these, repeated refreshes would open a new connection to every remote each time.
+
+Rejected alternative: rate limiting the route per user. It would still let several members together open unbounded connections, and it would refuse a refresh instead of answering from the last reading.
+
 ### Separate routes from the minute-refreshed dashboard
 
 `GET /dashboard/storages` and `GET /dashboard/installation/storages` are separate from `GET /dashboard` and `GET /dashboard/installation`. The page loads them on mount and on a refresh button.
@@ -54,6 +60,10 @@ All local storages write to one disk, so the free-space sums count it once. Remo
 ### Daily records and a line fit for the forecast
 
 A background job records one sample per reporting storage per day into `storage_usage_samples`, in the shape of the telemetry job (`backend/internal/features/telemetry/background_service.go`). The forecast fits a least-squares line to used share against time over 30 days, needs seven samples, and projects to 100%, as Proxmox Backup Server does.
+
+A unique constraint on the storage and the UTC day, with the insert skipping a conflict, keeps one sample per day even if two samplers race.
+
+Rejected alternative: checking for a recent sample before inserting. The check and the insert are two statements, so two processes can both pass it.
 
 Rejected alternative: computing the rate from backup sizes in the catalog. Storages also hold files Databasus does not know about, so only a reading of the storage itself tracks when it fills.
 

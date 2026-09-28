@@ -15,11 +15,19 @@ import (
 	users_enums "databasus-backend/internal/features/users/enums"
 	users_models "databasus-backend/internal/features/users/models"
 	workspaces_services "databasus-backend/internal/features/workspaces/services"
+	"databasus-backend/internal/util/cache"
 	"databasus-backend/internal/util/encryption"
 )
 
-// A remote that hangs must not hold the dashboard open, and a healthy one answers well inside this.
-const storageUsageProbeTimeout = 15 * time.Second
+const (
+	// A remote that hangs must not hold the dashboard open, and a healthy one answers well inside this.
+	storageUsageProbeTimeout = 15 * time.Second
+
+	// Any workspace member can refresh the dashboard, so readings are reused for a minute and the
+	// number of remote connections open at once is capped across all requests.
+	storageUsageCacheLifetime     = 1 * time.Minute
+	storageUsageMaxParallelProbes = 4
+)
 
 type StorageService struct {
 	storageRepository       *StorageRepository
@@ -29,6 +37,8 @@ type StorageService struct {
 	storageDatabaseCounters []StorageDatabaseCounter
 	storageBackupCounters   []StorageBackupCounter
 	usageSampleRepository   *StorageUsageSampleRepository
+	usageCache              *cache.JSONStore[cachedStorageUsage]
+	usageProbeSlots         chan struct{}
 }
 
 func (s *StorageService) AddStorageDatabaseCounter(counter StorageDatabaseCounter) {
@@ -522,25 +532,54 @@ func (s *StorageService) probeStorageUsages(
 	var probes sync.WaitGroup
 	for storageIndex, storage := range storagesToProbe {
 		probes.Go(func() {
-			probeCtx, cancel := context.WithTimeout(ctx, storageUsageProbeTimeout)
-			defer cancel()
-
-			usage, err := storage.GetUsage(probeCtx, s.fieldEncryptor)
+			storageUsage := s.getCachedOrProbedUsage(ctx, storage)
 
 			usageReports[storageIndex] = StorageUsageReport{
 				StorageID:     storage.ID,
 				StorageName:   storage.Name,
 				StorageType:   storage.Type,
-				Usage:         usage,
-				IsUnavailable: errors.Is(err, storage_space.ErrUsageUnavailable),
+				Usage:         storageUsage.Usage,
+				IsUnavailable: storageUsage.IsUnavailable,
 			}
 
-			if err != nil && !usageReports[storageIndex].IsUnavailable {
-				usageReports[storageIndex].ProbeError = err
+			if storageUsage.ProbeErrorMessage != "" {
+				usageReports[storageIndex].ProbeError = errors.New(storageUsage.ProbeErrorMessage)
 			}
 		})
 	}
 	probes.Wait()
 
 	return usageReports
+}
+
+func (s *StorageService) getCachedOrProbedUsage(ctx context.Context, storage *Storage) cachedStorageUsage {
+	cacheKey := storage.ID.String()
+
+	if cachedUsage, err := s.usageCache.Get(ctx, cacheKey); err == nil && cachedUsage != nil {
+		return *cachedUsage
+	}
+
+	select {
+	case s.usageProbeSlots <- struct{}{}:
+		defer func() { <-s.usageProbeSlots }()
+	case <-ctx.Done():
+		return cachedStorageUsage{ProbeErrorMessage: ctx.Err().Error()}
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, storageUsageProbeTimeout)
+	defer cancel()
+
+	usage, err := storage.GetUsage(probeCtx, s.fieldEncryptor)
+
+	probedUsage := cachedStorageUsage{
+		Usage:         usage,
+		IsUnavailable: errors.Is(err, storage_space.ErrUsageUnavailable),
+	}
+	if err != nil && !probedUsage.IsUnavailable {
+		probedUsage.ProbeErrorMessage = err.Error()
+	}
+
+	_ = s.usageCache.Set(ctx, cacheKey, probedUsage)
+
+	return probedUsage
 }

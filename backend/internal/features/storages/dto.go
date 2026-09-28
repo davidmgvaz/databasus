@@ -12,6 +12,13 @@ type TransferStorageRequest struct {
 
 // A failed or unsupported probe is kept per storage instead of failing the whole listing, since
 // one unreachable remote must not hide the space of the others.
+// Errors do not survive JSON, so a cached failure keeps only its message.
+type cachedStorageUsage struct {
+	Usage             *storage_space.Usage `json:"usage,omitempty"`
+	IsUnavailable     bool                 `json:"isUnavailable"`
+	ProbeErrorMessage string               `json:"probeErrorMessage,omitempty"`
+}
+
 type StorageUsageReport struct {
 	StorageID     uuid.UUID
 	StorageName   string

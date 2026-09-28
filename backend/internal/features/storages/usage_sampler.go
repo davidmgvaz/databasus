@@ -15,11 +15,7 @@ const (
 
 	storageUsageSamplingWarmup   = 1 * time.Minute
 	storageUsageSamplingInterval = 24 * time.Hour
-
-	// A restart inside a day must not add a second point for that day, or the forecast's
-	// "days of data" count and its slope would both drift.
-	storageUsageSampleMinimumSpacing = 20 * time.Hour
-	storageUsageSampleRetention      = 90 * 24 * time.Hour
+	storageUsageSampleRetention  = 90 * 24 * time.Hour
 )
 
 type StorageUsageSampler struct {
@@ -75,32 +71,22 @@ func (s *StorageUsageSampler) recordUsageSamples(ctx context.Context) {
 			continue
 		}
 
-		hasRecentSample, err := s.usageSampleRepository.HasSampleSince(
-			usageReport.StorageID,
-			now.Add(-storageUsageSampleMinimumSpacing),
-		)
-		if err != nil {
-			logger.ErrorContext(ctx, "failed to check last storage usage sample",
-				"storage_id", usageReport.StorageID, "error", err)
-			continue
-		}
-		if hasRecentSample {
-			continue
-		}
-
-		if err := s.usageSampleRepository.Insert(&StorageUsageSample{
+		isRecorded, err := s.usageSampleRepository.InsertOncePerDay(&StorageUsageSample{
 			StorageID:  usageReport.StorageID,
 			SampledAt:  now,
 			TotalBytes: usageReport.Usage.TotalBytes,
 			UsedBytes:  usageReport.Usage.UsedBytes,
 			FreeBytes:  usageReport.Usage.FreeBytes,
-		}); err != nil {
+		})
+		if err != nil {
 			logger.ErrorContext(ctx, "failed to record storage usage sample",
 				"storage_id", usageReport.StorageID, "error", err)
 			continue
 		}
 
-		recordedSamplesCount++
+		if isRecorded {
+			recordedSamplesCount++
+		}
 	}
 
 	if err := s.usageSampleRepository.DeleteOlderThan(now.Add(-storageUsageSampleRetention)); err != nil {

@@ -125,16 +125,21 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
       setIsLoading(true);
     }
 
-    try {
-      const [loadedWorkspaceDashboard, loadedInstallationTotals] = await Promise.all([
-        dashboardApi.getWorkspaceDashboard(workspace.id),
-        isAdmin ? dashboardApi.getInstallationDashboard() : Promise.resolve(undefined),
-      ]);
+    const [workspaceDashboardResult, installationTotalsResult] = await Promise.allSettled([
+      dashboardApi.getWorkspaceDashboard(workspace.id),
+      isAdmin ? dashboardApi.getInstallationDashboard() : Promise.resolve(undefined),
+    ]);
 
-      setWorkspaceDashboard(loadedWorkspaceDashboard);
-      setInstallationTotals(loadedInstallationTotals);
-    } catch (e) {
-      message.error(translateApiError(e, t));
+    if (workspaceDashboardResult.status === 'fulfilled') {
+      setWorkspaceDashboard(workspaceDashboardResult.value);
+    } else {
+      message.error(translateApiError(workspaceDashboardResult.reason, t));
+    }
+
+    if (installationTotalsResult.status === 'fulfilled') {
+      setInstallationTotals(installationTotalsResult.value);
+    } else {
+      message.error(translateApiError(installationTotalsResult.reason, t));
     }
 
     if (!isSilent) {

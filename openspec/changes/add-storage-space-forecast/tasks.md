@@ -19,6 +19,12 @@
 - [x] 2.5 Show the forecast column on the dashboard in all six languages; verify `pnpm build`
 - [x] 2.6 Lint; verify `make lint`, `pnpm lint`
 
-## 3. Review
+## 3. Review feedback
 
-- [ ] 3.1 Run the post-implementation compliance review from the root `AGENTS.md` and resolve its findings
+- [x] 3.1 Cache each storage's reading for a minute and cap parallel probes at four; verify `make lint`
+- [x] 3.2 Enforce one usage sample per storage per UTC day with a unique constraint; verify `go vet ./internal/features/storages/...`
+- [x] 3.3 Load the workspace dashboard and installation totals independently; verify `pnpm lint` and `pnpm build`
+
+## 4. Review
+
+- [ ] 4.1 Run the post-implementation compliance review from the root `AGENTS.md` and resolve its findings

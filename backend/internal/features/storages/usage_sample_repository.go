@@ -4,29 +4,25 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm/clause"
 
 	db "databasus-backend/internal/storage"
 )
 
 type StorageUsageSampleRepository struct{}
 
-func (r *StorageUsageSampleRepository) Insert(sample *StorageUsageSample) error {
-	return db.GetDb().Create(sample).Error
-}
+// The unique (storage_id, sampled_on) constraint makes a second sample of the same UTC day a
+// no-op even when two processes race, so the forecast never counts a day twice.
+func (r *StorageUsageSampleRepository) InsertOncePerDay(sample *StorageUsageSample) (bool, error) {
+	sampledAt := sample.SampledAt.UTC()
+	sample.SampledOn = time.Date(sampledAt.Year(), sampledAt.Month(), sampledAt.Day(), 0, 0, 0, 0, time.UTC)
 
-func (r *StorageUsageSampleRepository) HasSampleSince(storageID uuid.UUID, since time.Time) (bool, error) {
-	var count int64
-
-	if err := db.
-		GetDb().
-		Model(&StorageUsageSample{}).
-		Where("storage_id = ? AND sampled_at >= ?", storageID, since).
-		Limit(1).
-		Count(&count).Error; err != nil {
-		return false, err
+	insertResult := db.GetDb().Clauses(clause.OnConflict{DoNothing: true}).Create(sample)
+	if insertResult.Error != nil {
+		return false, insertResult.Error
 	}
 
-	return count > 0, nil
+	return insertResult.RowsAffected > 0, nil
 }
 
 func (r *StorageUsageSampleRepository) FindSinceByStorageIDs(
