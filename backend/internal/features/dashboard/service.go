@@ -28,6 +28,10 @@ const (
 	// The same window and minimum Proxmox Backup Server uses for its "estimated full" date.
 	storageFullForecastWindow          = 30 * 24 * time.Hour
 	storageFullForecastRequiredSamples = 7
+
+	// Beyond this the date says nothing useful, and far beyond it (about 292 years) the
+	// conversion to time.Duration overflows and would wrap to a date in the past.
+	storageFullForecastMaxHorizon = 10 * 365 * 24 * time.Hour
 )
 
 // Errors after the workspace check come from aggregate queries whose text names tables and
@@ -427,6 +431,11 @@ func forecastStorageFull(
 	}
 
 	secondsUntilFull := (1 - usedShareTrend.Intercept) / usedShareTrend.Slope
+	if secondsUntilFull > storageFullForecastMaxHorizon.Seconds() {
+		forecast.Status = StorageFullForecastStatusNotFillingUp
+		return forecast
+	}
+
 	estimatedFullAt := firstSampledAt.Add(time.Duration(secondsUntilFull * float64(time.Second)))
 	if estimatedFullAt.Before(now) {
 		estimatedFullAt = now

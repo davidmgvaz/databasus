@@ -442,6 +442,16 @@ func Test_GetWorkspaceStorages_WithFallingUsageSamples_ReturnsNotFillingUp(t *te
 	assert.Nil(t, storageUsage.FullForecast.EstimatedFullAt)
 }
 
+func Test_GetWorkspaceStorages_WithBarelyRisingUsageSamples_ReturnsNotFillingUp(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	createDailyUsageSamples(testWorkspace.storage.ID, []int64{100, 100, 100, 100, 100, 100, 100, 101})
+
+	storageUsage := getSingleStorageUsage(t, testWorkspace)
+
+	assert.Equal(t, StorageFullForecastStatusNotFillingUp, storageUsage.FullForecast.Status)
+	assert.Nil(t, storageUsage.FullForecast.EstimatedFullAt)
+}
+
 func Test_GetWorkspaceStorages_WithFewUsageSamples_ReturnsCollecting(t *testing.T) {
 	testWorkspace := createDashboardTestWorkspace(t)
 	createDailyUsageSamples(testWorkspace.storage.ID, []int64{100, 150, 200})

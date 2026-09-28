@@ -145,16 +145,21 @@ export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatab
   const loadStorages = async () => {
     setIsStoragesLoading(true);
 
-    try {
-      const [loadedWorkspaceStorages, loadedInstallationStorages] = await Promise.all([
-        dashboardApi.getWorkspaceStorages(workspace.id),
-        isAdmin ? dashboardApi.getInstallationStorages() : Promise.resolve(undefined),
-      ]);
+    const [workspaceStoragesResult, installationStoragesResult] = await Promise.allSettled([
+      dashboardApi.getWorkspaceStorages(workspace.id),
+      isAdmin ? dashboardApi.getInstallationStorages() : Promise.resolve(undefined),
+    ]);
 
-      setWorkspaceStorages(loadedWorkspaceStorages);
-      setInstallationStorages(loadedInstallationStorages);
-    } catch (e) {
-      message.error(translateApiError(e, t));
+    if (workspaceStoragesResult.status === 'fulfilled') {
+      setWorkspaceStorages(workspaceStoragesResult.value);
+    } else {
+      message.error(translateApiError(workspaceStoragesResult.reason, t));
+    }
+
+    if (installationStoragesResult.status === 'fulfilled') {
+      setInstallationStorages(installationStoragesResult.value);
+    } else {
+      message.error(translateApiError(installationStoragesResult.reason, t));
     }
 
     setIsStoragesLoading(false);
