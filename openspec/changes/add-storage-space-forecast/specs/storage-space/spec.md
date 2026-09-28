@@ -62,7 +62,7 @@ The system SHALL let any member of a workspace, viewers included, and any global
 
 ### Requirement: The system predicts when a storage will be full
 
-The system SHALL record the space of every reporting storage once a day and keep 90 days of records. From the records of the last 30 days it SHALL fit a straight line to the used share over time and show the date the line reaches 100%. With fewer than seven records it SHALL say it is still collecting data. When the used share is flat or falling it SHALL say the storage is not filling up.
+The system SHALL record the space of every reporting storage once a day and keep 90 days of records. From the records of the last 30 days it SHALL fit a straight line to the used share over time and show the date the line reaches 100%. With fewer than seven records it SHALL say it is still collecting data. When the used share is flat or falling, or rises so slowly that the full date lies more than ten years away, it SHALL say the storage is not filling up.
 
 #### Scenario: A steadily filling storage
 
@@ -73,6 +73,11 @@ The system SHALL record the space of every reporting storage once a day and keep
 
 - **WHEN** a storage has three daily records
 - **THEN** the dashboard says it is collecting data, 3 of 7 days
+
+#### Scenario: A barely growing storage
+
+- **WHEN** a storage's used share rises so slowly across its records that it would take about thirty years to fill
+- **THEN** the dashboard says it is not filling up
 
 #### Scenario: A storage being cleaned up
 
