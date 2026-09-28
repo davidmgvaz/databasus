@@ -37,6 +37,18 @@ Rejected alternative: calling `CanUserAccessWorkspace` again in the dashboard se
 
 Rejected alternative: a role check inside the service. The rule applies to the whole route and does not depend on any entity, which is the case the middleware exists for.
 
+### Aggregate failures answer with a generic message
+
+Errors raised after the workspace check wrap `ErrDashboardUnavailable`. The controller logs them and answers 500 with the sentinel's text, while the workspace access error keeps the databases list's 400 response (`backend/internal/features/dashboard/controller.go`). The aggregate queries' errors name tables and drivers, which the API contract must not leak.
+
+Rejected alternative: returning every error text as the databases list does. The list's errors come from one query; the dashboard's come from six, on tables the caller never addressed.
+
+### Opening a database from its dashboard row
+
+The dashboard reports the chosen database id to the main screen, which switches to the databases tab and hands the id to the databases page as the database to select first (`frontend/src/features/databases/ui/DatabasesComponent.tsx`, `initialSelectedDatabaseId`). The databases page already opens on the backups tab.
+
+Rejected alternative: writing the databases page's `localStorage` selection key from the dashboard. The key belongs to the databases slice, and the page ignores it on phones, where the click must still open the database.
+
 ### Query parameter, not path parameter
 
 The workspace route is `GET /dashboard?workspace_id=`, matching `GET /databases?workspace_id=` (`backend/internal/features/databases/controller.go:27`), `/storages` and `/notifiers`.

@@ -287,7 +287,8 @@ export const ru: typeof en = {
       installation: 'Все рабочие пространства',
       installationHint:
         'Итоги по всем рабочим пространствам этого экземпляра Databasus. Их видят только администраторы.',
-      installationDetails: 'Баз данных: {{databasesCount}}, бекапов: {{backupsCount}}',
+      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      workspaceOfInstallationHint: 'Это рабочее пространство / все',
     },
     list: {
       title: 'Базы данных',

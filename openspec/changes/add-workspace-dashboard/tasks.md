@@ -21,7 +21,13 @@
 - [x] 3.3 Add the sidebar entry, its icons and the default tab; verify the app opens on the dashboard after sign-in
 - [x] 3.4 Add the `dashboard` keys to all six dictionaries; verify `pnpm build` and `pnpm test`
 - [x] 3.5 Format and lint; verify `pnpm format` and `pnpm lint`
+- [x] 3.6 Open a database's backups from its dashboard row and show the admin counts across workspaces; verify clicking a name in the running app selects that database on the databases page
 
-## 4. Review
+## 4. Review feedback
 
-- [ ] 4.1 Run the post-implementation compliance review from the root `AGENTS.md` and resolve its findings
+- [x] 4.1 Answer aggregate failures with a generic message and log the cause; verify `make lint`
+- [x] 4.2 Omit the mean size when no backup succeeded; verify `go test ./internal/features/dashboard/... -count=1`
+
+## 5. Review
+
+- [ ] 5.1 Run the post-implementation compliance review from the root `AGENTS.md` and resolve its findings

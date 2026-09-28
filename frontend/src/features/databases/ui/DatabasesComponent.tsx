@@ -15,12 +15,18 @@ interface Props {
   contentHeight: number;
   workspace: WorkspaceResponse;
   isCanManageDBs: boolean;
+  initialSelectedDatabaseId?: string;
 }
 
 // eslint-disable-next-line i18next/no-literal-string -- localStorage key
 const SELECTED_DATABASE_STORAGE_KEY = 'selectedDatabaseId';
 
-export const DatabasesComponent = ({ contentHeight, workspace, isCanManageDBs }: Props) => {
+export const DatabasesComponent = ({
+  contentHeight,
+  workspace,
+  isCanManageDBs,
+  initialSelectedDatabaseId,
+}: Props) => {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(true);
@@ -50,9 +56,16 @@ export const DatabasesComponent = ({ contentHeight, workspace, isCanManageDBs }:
       .getDatabases(workspace.id)
       .then((databases) => {
         setDatabases(databases);
+        const isInitialLoad = !selectedDatabaseId && !isSilent;
+        const isInitialDatabaseListed =
+          !!initialSelectedDatabaseId &&
+          databases.some((database) => database.id === initialSelectedDatabaseId);
+
         if (selectDatabaseId) {
           updateSelectedDatabaseId(selectDatabaseId);
-        } else if (!selectedDatabaseId && !isSilent && !isMobile) {
+        } else if (isInitialLoad && isInitialDatabaseListed) {
+          updateSelectedDatabaseId(initialSelectedDatabaseId);
+        } else if (isInitialLoad && !isMobile) {
           // On desktop, auto-select a database; on mobile, keep it unselected to show the list first
           const savedDatabaseId = localStorage.getItem(
             `${SELECTED_DATABASE_STORAGE_KEY}_${workspace.id}`,

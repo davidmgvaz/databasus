@@ -25,7 +25,7 @@ type DashboardDatabase struct {
 	BackupsCount              int64                         `json:"backupsCount"`
 	CompletedBackupsCount     int64                         `json:"completedBackupsCount"`
 	FailedBackupsCount        int64                         `json:"failedBackupsCount"`
-	MeanBackupSizeMb          float64                       `json:"meanBackupSizeMb"`
+	MeanBackupSizeMb          *float64                      `json:"meanBackupSizeMb,omitempty"`
 	TotalBackupSizeMb         float64                       `json:"totalBackupSizeMb"`
 	RecentHealthcheckAttempts []DashboardHealthcheckAttempt `json:"recentHealthcheckAttempts"`
 }

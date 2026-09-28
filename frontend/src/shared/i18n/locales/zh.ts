@@ -276,7 +276,8 @@ export const zh: typeof en = {
       backupsSizeHint: '仅统计成功的备份。物理数据库还包含 WAL 段。',
       installation: '全部工作区',
       installationHint: '本 Databasus 实例所有工作区的汇总，仅管理员可见。',
-      installationDetails: '数据库：{{databasesCount}}，备份：{{backupsCount}}',
+      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      workspaceOfInstallationHint: '当前工作区 / 全部工作区',
     },
     list: {
       title: '数据库',

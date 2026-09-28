@@ -292,7 +292,8 @@ export const pt: typeof en = {
       installation: 'Todos os espaços de trabalho',
       installationHint:
         'Totais de todos os espaços de trabalho desta instância do Databasus. Só os administradores veem esses números.',
-      installationDetails: 'Bancos de dados: {{databasesCount}}, backups: {{backupsCount}}',
+      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      workspaceOfInstallationHint: 'Este espaço de trabalho / todos',
     },
     list: {
       title: 'Bancos de dados',

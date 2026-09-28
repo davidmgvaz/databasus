@@ -8,6 +8,7 @@ import (
 	"databasus-backend/internal/features/databases"
 	healthcheck_attempt "databasus-backend/internal/features/healthcheck/attempt"
 	healthcheck_config "databasus-backend/internal/features/healthcheck/config"
+	"databasus-backend/internal/util/logger"
 )
 
 var dashboardService = &DashboardService{
@@ -22,6 +23,7 @@ var dashboardService = &DashboardService{
 
 var dashboardController = &DashboardController{
 	dashboardService,
+	logger.GetLogger(),
 }
 
 func GetDashboardService() *DashboardService {

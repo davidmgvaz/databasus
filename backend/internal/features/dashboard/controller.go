@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +14,7 @@ import (
 
 type DashboardController struct {
 	dashboardService *DashboardService
+	logger           *slog.Logger
 }
 
 func (c *DashboardController) RegisterRoutes(router *gin.RouterGroup) {
@@ -33,6 +36,7 @@ func (c *DashboardController) RegisterRoutes(router *gin.RouterGroup) {
 // @Success 200 {object} WorkspaceDashboard
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /dashboard [get]
 func (c *DashboardController) GetWorkspaceDashboard(ctx *gin.Context) {
 	user, ok := users_middleware.GetUserFromContext(ctx)
@@ -54,6 +58,11 @@ func (c *DashboardController) GetWorkspaceDashboard(ctx *gin.Context) {
 	}
 
 	dashboard, err := c.dashboardService.GetWorkspaceDashboard(ctx.Request.Context(), user, workspaceID)
+	if errors.Is(err, ErrDashboardUnavailable) {
+		c.logger.ErrorContext(ctx.Request.Context(), "failed to build workspace dashboard", "error", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": ErrDashboardUnavailable.Error()})
+		return
+	}
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -76,7 +85,8 @@ func (c *DashboardController) GetWorkspaceDashboard(ctx *gin.Context) {
 func (c *DashboardController) GetInstallationDashboard(ctx *gin.Context) {
 	totals, err := c.dashboardService.GetInstallationDashboard()
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.logger.ErrorContext(ctx.Request.Context(), "failed to build installation dashboard", "error", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": ErrDashboardUnavailable.Error()})
 		return
 	}
 

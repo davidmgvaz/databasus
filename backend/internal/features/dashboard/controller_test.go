@@ -92,7 +92,8 @@ func Test_GetWorkspaceDashboard_WithLogicalAndPhysicalDatabases_ReturnsPerDataba
 	assert.Equal(t, int64(4), logicalDashboardDatabase.BackupsCount)
 	assert.Equal(t, int64(2), logicalDashboardDatabase.CompletedBackupsCount)
 	assert.Equal(t, int64(1), logicalDashboardDatabase.FailedBackupsCount)
-	assert.InDelta(t, 10.5, logicalDashboardDatabase.MeanBackupSizeMb, 0.001)
+	require.NotNil(t, logicalDashboardDatabase.MeanBackupSizeMb)
+	assert.InDelta(t, 10.5, *logicalDashboardDatabase.MeanBackupSizeMb, 0.001)
 	assert.InDelta(t, 21.0, logicalDashboardDatabase.TotalBackupSizeMb, 0.001)
 	require.NotNil(t, logicalDashboardDatabase.Storage)
 	assert.Equal(t, testWorkspace.storage.ID, logicalDashboardDatabase.Storage.ID)
@@ -103,7 +104,8 @@ func Test_GetWorkspaceDashboard_WithLogicalAndPhysicalDatabases_ReturnsPerDataba
 	assert.Equal(t, int64(2), physicalDashboardDatabase.BackupsCount)
 	assert.Equal(t, int64(1), physicalDashboardDatabase.CompletedBackupsCount)
 	assert.Equal(t, int64(1), physicalDashboardDatabase.FailedBackupsCount)
-	assert.InDelta(t, 100.0, physicalDashboardDatabase.MeanBackupSizeMb, 0.001)
+	require.NotNil(t, physicalDashboardDatabase.MeanBackupSizeMb)
+	assert.InDelta(t, 100.0, *physicalDashboardDatabase.MeanBackupSizeMb, 0.001)
 	assert.InDelta(t, 116.0, physicalDashboardDatabase.TotalBackupSizeMb, 0.001)
 	require.NotNil(t, physicalDashboardDatabase.Storage)
 	assert.Equal(t, testWorkspace.storage.ID, physicalDashboardDatabase.Storage.ID)
@@ -194,6 +196,30 @@ func Test_GetWorkspaceDashboard_WhenHealthcheckEnabled_ReturnsLastTenAttemptsNew
 	for attemptIndex := 1; attemptIndex < len(recentAttempts); attemptIndex++ {
 		assert.True(t, recentAttempts[attemptIndex-1].CreatedAt.After(recentAttempts[attemptIndex].CreatedAt))
 	}
+}
+
+func Test_GetWorkspaceDashboard_WhenNoBackupSucceeded_OmitsMeanSize(t *testing.T) {
+	testWorkspace := createDashboardTestWorkspace(t)
+	database := createTestLogicalDatabase(t, testWorkspace)
+	backups_controllers_logical.CreateTestBackupWithOptions(
+		database.ID,
+		testWorkspace.storage.ID,
+		backups_controllers_logical.TestBackupOptions{
+			Status:    backups_core_logical.BackupStatusFailed,
+			CreatedAt: time.Now().UTC(),
+		},
+	)
+
+	response := test_utils.MakeGetRequest(
+		t,
+		testWorkspace.router,
+		getWorkspaceDashboardURL(testWorkspace.workspace),
+		"Bearer "+testWorkspace.owner.Token,
+		http.StatusOK,
+	)
+
+	assert.NotContains(t, string(response.Body), "meanBackupSizeMb")
+	assert.Contains(t, string(response.Body), `"failedBackupsCount":1`)
 }
 
 func Test_GetWorkspaceDashboard_WhenHealthcheckDisabled_ReturnsEmptyAttempts(t *testing.T) {

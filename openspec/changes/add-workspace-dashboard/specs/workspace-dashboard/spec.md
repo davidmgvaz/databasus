@@ -53,6 +53,15 @@ The system SHALL show, for every database with healthcheck enabled, its last ten
 - **WHEN** a database has healthcheck disabled
 - **THEN** its row shows no attempts
 
+### Requirement: A database name opens that database's backups
+
+The system SHALL open the databases page with that database selected, on its backups tab, when a user activates a database name on the dashboard.
+
+#### Scenario: A user activates a database name
+
+- **WHEN** a user activates the name of a database on the dashboard
+- **THEN** the databases page opens with that database selected and its backups shown
+
 ### Requirement: The dashboard shows the workspace totals
 
 The system SHALL show the number of databases in the workspace, the sum of their backup counts and the sum of their total backup sizes.
@@ -64,7 +73,7 @@ The system SHALL show the number of databases in the workspace, the sum of their
 
 ### Requirement: Only workspace members can read a workspace dashboard
 
-The system SHALL let every member of a workspace, viewers included, and every global admin read that workspace's dashboard. Any other user SHALL be refused with the same response the databases list gives, so the response does not reveal whether the workspace exists.
+The system SHALL let every member of a workspace, viewers included, and every global admin read that workspace's dashboard. Any other user SHALL be refused with the same response the databases list gives, so the response does not reveal whether the workspace exists. A failure while computing the statistics of an accessible workspace SHALL be reported as a generic unavailability, never with the failure's own text.
 
 #### Scenario: A viewer opens the dashboard
 
@@ -78,12 +87,12 @@ The system SHALL let every member of a workspace, viewers included, and every gl
 
 ### Requirement: Only global admins can read the installation totals
 
-The system SHALL return the number of databases, the number of backups and the total backup size across every workspace, including databases created by restores that belong to no workspace, only to global admins. Any other user SHALL be refused, and the dashboard SHALL NOT show the installation tile to them.
+The system SHALL return the number of databases, the number of backups and the total backup size across every workspace, including databases created by restores that belong to no workspace, only to global admins. Any other user SHALL be refused, and the dashboard SHALL NOT show the installation numbers to them. A failure while computing the totals SHALL be reported as a generic unavailability, never with the failure's own text.
 
 #### Scenario: An admin opens the dashboard
 
 - **WHEN** a global admin opens the dashboard
-- **THEN** an extra tile shows the totals across every workspace
+- **THEN** the database and backup tiles show the workspace count next to the count across every workspace, and an extra tile shows the total backup size across every workspace
 
 #### Scenario: A member requests the installation totals
 

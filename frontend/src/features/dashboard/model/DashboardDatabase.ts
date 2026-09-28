@@ -13,7 +13,7 @@ export interface DashboardDatabase {
   backupsCount: number;
   completedBackupsCount: number;
   failedBackupsCount: number;
-  meanBackupSizeMb: number;
+  meanBackupSizeMb?: number;
   totalBackupSizeMb: number;
   recentHealthcheckAttempts: DashboardHealthcheckAttempt[];
 }

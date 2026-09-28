@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -20,6 +21,10 @@ import (
 )
 
 const recentHealthcheckAttemptsLimit = 10
+
+// Errors after the workspace check come from aggregate queries whose text names tables and
+// drivers, so the controller answers them with a generic message instead of the text.
+var ErrDashboardUnavailable = errors.New("dashboard is unavailable")
 
 type DashboardService struct {
 	databaseService             *databases.DatabaseService
@@ -45,24 +50,24 @@ func (s *DashboardService) GetWorkspaceDashboard(
 
 	logicalTotals, err := s.logicalBackupService.GetBackupTotalsByDatabaseIDs(logicalDatabaseIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	physicalTotals, err := s.physicalBackupService.GetBackupTotalsByDatabaseIDs(physicalDatabaseIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	storagesByDatabaseID, err := s.getStoragesByDatabaseID(logicalDatabaseIDs, physicalDatabaseIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	attemptsByDatabaseID, err := s.getRecentAttemptsOfMonitoredDatabases(
 		slices.Concat(logicalDatabaseIDs, physicalDatabaseIDs),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	dashboard := &WorkspaceDashboard{
@@ -103,17 +108,17 @@ func (s *DashboardService) GetWorkspaceDashboard(
 func (s *DashboardService) GetInstallationDashboard() (*DashboardTotals, error) {
 	databasesCount, err := s.databaseService.CountDatabases()
 	if err != nil {
-		return nil, fmt.Errorf("count databases of the installation: %w", err)
+		return nil, fmt.Errorf("%w: count databases of the installation: %w", ErrDashboardUnavailable, err)
 	}
 
 	logicalTotals, err := s.logicalBackupService.GetInstallationBackupTotals()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	physicalTotals, err := s.physicalBackupService.GetInstallationBackupTotals()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrDashboardUnavailable, err)
 	}
 
 	return &DashboardTotals{
@@ -230,12 +235,12 @@ func applyPhysicalBackupTotals(
 	dashboardDatabase.TotalBackupSizeMb = totals.CompletedBackupSizeMb + totals.WalSizeMb
 }
 
-func getMeanSizeMb(totalSizeMb float64, backupsCount int64) float64 {
+func getMeanSizeMb(totalSizeMb float64, backupsCount int64) *float64 {
 	if backupsCount == 0 {
-		return 0
+		return nil
 	}
 
-	return totalSizeMb / float64(backupsCount)
+	return new(totalSizeMb / float64(backupsCount))
 }
 
 func toDashboardStorage(storage *storages.Storage) *DashboardStorage {

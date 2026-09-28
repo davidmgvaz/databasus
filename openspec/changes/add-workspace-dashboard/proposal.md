@@ -7,7 +7,8 @@ Databasus opens on a card list of databases. Each card shows the health badge, t
 - Add a dashboard page that becomes the page shown after sign-in and after creating a workspace. The databases list stays one click away in the sidebar.
 - The dashboard lists every database of the selected workspace in a table with its health status, its last ten healthcheck attempts, its backup counts, the mean and total size of its backups, the time of its last backup and its storage. Phones get one card per database instead of the table.
 - Summary tiles above the table show the workspace totals: databases, backups and total backup size.
-- Global admins also see an installation-wide tile with the database count, backup count and total backup size across every workspace.
+- Global admins also see the database and backup counts across every workspace next to the workspace's own, and a tile with the total backup size across every workspace.
+- A database name on the dashboard opens that database's backups on the databases page.
 - Add `GET /api/v1/dashboard?workspace_id=<id>` for any workspace member, and `GET /api/v1/dashboard/installation` for global admins only.
 - Extract the health status badge, the healthcheck attempt strip and the MB/GB size formatter into shared pieces, so the dashboard and the existing pages render them the same way.
 
@@ -34,7 +35,6 @@ None.
 
 ## Out of scope
 
-- Opening a database's detail page from a dashboard row.
 - Storage usage reported by the storage provider, free space per storage, and charts or history over time.
 - Caching or background pre-computation of the aggregates.
 - Changing the databases card list beyond reusing the extracted badge.

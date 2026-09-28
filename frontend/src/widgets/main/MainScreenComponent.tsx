@@ -42,6 +42,7 @@ export const MainScreenComponent = () => {
   const contentHeight = screenHeight - (isMobile ? 70 : 95);
 
   const [selectedTab, setSelectedTab] = useState<MainTab>('dashboard');
+  const [databaseIdToOpen, setDatabaseIdToOpen] = useState<string | undefined>(undefined);
   const [diskUsage, setDiskUsage] = useState<DiskUsage | undefined>(undefined);
   const [user, setUser] = useState<UserProfile | undefined>(undefined);
   const [globalSettings, setGlobalSettings] = useState<UsersSettings | undefined>(undefined);
@@ -123,6 +124,11 @@ export const MainScreenComponent = () => {
 
   const isCanManageDBs = selectedWorkspace?.userRole !== WorkspaceRole.VIEWER;
 
+  const openDatabase = (databaseId: string) => {
+    setDatabaseIdToOpen(databaseId);
+    setSelectedTab('databases');
+  };
+
   const tabs: SidebarTab[] = [
     {
       text: t('app.navigation.dashboard'),
@@ -139,7 +145,10 @@ export const MainScreenComponent = () => {
       name: 'databases',
       icon: '/icons/menu/database-gray.svg',
       selectedIcon: '/icons/menu/database-white.svg',
-      onClick: () => setSelectedTab('databases'),
+      onClick: () => {
+        setDatabaseIdToOpen(undefined);
+        setSelectedTab('databases');
+      },
       isAdminOnly: false,
       marginTop: '0px',
       isVisible: true,
@@ -358,6 +367,7 @@ export const MainScreenComponent = () => {
                         contentHeight={contentHeight}
                         workspace={selectedWorkspace}
                         isCanManageDBs={isCanManageDBs}
+                        initialSelectedDatabaseId={databaseIdToOpen}
                         key={`databases-${selectedWorkspace.id}`}
                       />
                     )}
@@ -368,6 +378,7 @@ export const MainScreenComponent = () => {
                           workspace={selectedWorkspace}
                           user={user}
                           contentHeight={contentHeight}
+                          onOpenDatabase={openDatabase}
                           key={`dashboard-${selectedWorkspace.id}`}
                         />
                       )}

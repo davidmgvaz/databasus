@@ -286,7 +286,8 @@ export const en = {
       installation: 'All workspaces',
       installationHint:
         'Totals across every workspace of this Databasus instance. Only admins see them.',
-      installationDetails: 'Databases: {{databasesCount}}, backups: {{backupsCount}}',
+      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      workspaceOfInstallationHint: 'This workspace / all workspaces',
     },
     list: {
       title: 'Databases',

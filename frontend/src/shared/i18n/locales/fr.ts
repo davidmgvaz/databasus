@@ -293,7 +293,8 @@ export const fr: typeof en = {
       installation: 'Tous les espaces de travail',
       installationHint:
         'Totaux de tous les espaces de travail de cette instance Databasus. Seuls les administrateurs les voient.',
-      installationDetails: 'Bases de données : {{databasesCount}}, sauvegardes : {{backupsCount}}',
+      workspaceOfInstallation: '{{workspaceCount}} / {{installationCount}}',
+      workspaceOfInstallationHint: 'Cet espace de travail / tous',
     },
     list: {
       title: 'Bases de données',

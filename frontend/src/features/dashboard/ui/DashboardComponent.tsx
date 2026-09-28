@@ -22,6 +22,7 @@ interface Props {
   workspace: WorkspaceResponse;
   user: UserProfile;
   contentHeight: number;
+  onOpenDatabase: (databaseId: string) => void;
 }
 
 interface SummaryTile {
@@ -53,11 +54,17 @@ const renderSummaryTile = ({ label, value, hint, details }: SummaryTile) => (
   </div>
 );
 
-const renderDatabaseName = (database: DashboardDatabase) => (
-  <div className="flex min-w-0 items-center gap-2">
+const renderDatabaseName = (database: DashboardDatabase, onOpenDatabase: (id: string) => void) => (
+  <button
+    type="button"
+    className="flex min-w-0 cursor-pointer items-center gap-2 text-left hover:text-blue-600 dark:hover:text-blue-400"
+    onClick={() => onOpenDatabase(database.id)}
+  >
     <img src={getDatabaseLogoFromType(database.type)} alt="" className="h-4 w-4 shrink-0" />
-    <span className="font-medium break-all">{database.name}</span>
-  </div>
+    <span className="font-medium break-all underline decoration-gray-300 underline-offset-2 dark:decoration-gray-600">
+      {database.name}
+    </span>
+  </button>
 );
 
 const renderHealthStatus = (database: DashboardDatabase) =>
@@ -93,7 +100,7 @@ const renderMobileField = (label: string, value: ReactNode) => (
   </div>
 );
 
-export const DashboardComponent = ({ workspace, user, contentHeight }: Props) => {
+export const DashboardComponent = ({ workspace, user, contentHeight, onOpenDatabase }: Props) => {
   const { t } = useTranslation();
   const { formatNumber, formatRelativeTime } = useLocale();
   const { message } = App.useApp();
@@ -147,9 +154,17 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
   );
 
   const renderMeanBackupSize = (database: DashboardDatabase) =>
-    database.completedBackupsCount > 0
-      ? formatSizeMb(database.meanBackupSizeMb, formatNumber)
-      : renderNoValue();
+    database.meanBackupSizeMb === undefined
+      ? renderNoValue()
+      : formatSizeMb(database.meanBackupSizeMb, formatNumber);
+
+  const renderCountTileValue = (workspaceCount: number, installationCount?: number) =>
+    installationCount === undefined
+      ? formatNumber(workspaceCount)
+      : t('dashboard.tiles.workspaceOfInstallation', {
+          workspaceCount: formatNumber(workspaceCount),
+          installationCount: formatNumber(installationCount),
+        });
 
   const renderLastBackup = (database: DashboardDatabase) => (
     <div className="flex items-center gap-1">
@@ -190,9 +205,21 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
 
   const { databases, totals } = workspaceDashboard;
 
+  const countTileDetails = installationTotals
+    ? t('dashboard.tiles.workspaceOfInstallationHint')
+    : undefined;
+
   const summaryTiles: SummaryTile[] = [
-    { label: t('dashboard.tiles.databases'), value: formatNumber(totals.databasesCount) },
-    { label: t('dashboard.tiles.backups'), value: formatNumber(totals.backupsCount) },
+    {
+      label: t('dashboard.tiles.databases'),
+      value: renderCountTileValue(totals.databasesCount, installationTotals?.databasesCount),
+      details: countTileDetails,
+    },
+    {
+      label: t('dashboard.tiles.backups'),
+      value: renderCountTileValue(totals.backupsCount, installationTotals?.backupsCount),
+      details: countTileDetails,
+    },
     {
       label: t('dashboard.tiles.backupsSize'),
       value: formatSizeMb(totals.totalBackupSizeMb, formatNumber),
@@ -205,10 +232,6 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
       label: t('dashboard.tiles.installation'),
       value: formatSizeMb(installationTotals.totalBackupSizeMb, formatNumber),
       hint: t('dashboard.tiles.installationHint'),
-      details: t('dashboard.tiles.installationDetails', {
-        databasesCount: formatNumber(installationTotals.databasesCount),
-        backupsCount: formatNumber(installationTotals.backupsCount),
-      }),
     });
   }
 
@@ -216,7 +239,8 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
     {
       title: t('dashboard.list.columns.database'),
       key: 'name',
-      render: (_: unknown, database: DashboardDatabase) => renderDatabaseName(database),
+      render: (_: unknown, database: DashboardDatabase) =>
+        renderDatabaseName(database, onOpenDatabase),
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
@@ -239,7 +263,7 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
       title: t('dashboard.list.columns.meanSize'),
       key: 'meanBackupSizeMb',
       render: (_: unknown, database: DashboardDatabase) => renderMeanBackupSize(database),
-      sorter: (a, b) => a.meanBackupSizeMb - b.meanBackupSizeMb,
+      sorter: (a, b) => (a.meanBackupSizeMb ?? 0) - (b.meanBackupSizeMb ?? 0),
     },
     {
       title: t('dashboard.list.columns.totalSize'),
@@ -294,7 +318,7 @@ export const DashboardComponent = ({ workspace, user, contentHeight }: Props) =>
                   className="mb-2 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    {renderDatabaseName(database)}
+                    {renderDatabaseName(database, onOpenDatabase)}
                     {database.healthStatus && (
                       <HealthStatusBadgeComponent healthStatus={database.healthStatus} />
                     )}
