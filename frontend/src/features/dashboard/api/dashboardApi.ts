@@ -1,6 +1,6 @@
 import { getApplicationServer } from '../../../constants';
-import RequestOptions from '../../../shared/api/RequestOptions';
 import { apiHelper } from '../../../shared/api/apiHelper';
+import RequestOptions from '../../../shared/api/RequestOptions';
 import type { DashboardTotals } from '../model/DashboardTotals';
 import type { InstallationStorages } from '../model/InstallationStorages';
 import type { WorkspaceDashboard } from '../model/WorkspaceDashboard';
